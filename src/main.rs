@@ -10,7 +10,7 @@ use trainer::{lr, wdl, DirectSequentialDataLoader, LocalSettings, Trainer, Train
 pub type InputFeatures = inputs::ChessBucketsMirrored;
 pub type OutputBuckets = outputs::Single;
 pub type Activation = activation::SCReLU;
-pub const HL_SIZE: usize = 1280;
+pub const HL_SIZE: usize = 1024;
 
 // Quantisations
 pub const QA: i16 = 255;
@@ -35,8 +35,7 @@ fn main() {
     // let mut trainer = Trainer::from_checkpoint("checkpoints/calvin1280-710").unwrap();
 
     let loader = DirectSequentialDataLoader::new(&[
-        "/Users/kelseyde/git/dan/calvin/data/calvindata_1.bin",
-        "/Users/kelseyde/git/dan/calvin/data/calvindata_2.bin"
+        "/Users/kelseyde/git/dan/calvin/data/calvindata.bin"
     ]);
 
     let schedule = TrainingSchedule {
