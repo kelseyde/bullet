@@ -21,7 +21,7 @@ use bullet_lib::{
 };
 use bullet_lib::default::inputs::ChessBucketsMirroredFactorised;
 
-const HIDDEN_SIZE: usize = 1024;
+const HIDDEN_SIZE: usize = 1152;
 const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
@@ -32,14 +32,14 @@ fn main() {
         .optimiser(optimiser::AdamW)
         .loss_fn(Loss::SigmoidMSE)
         .input(ChessBucketsMirroredFactorised::new([
-            0, 0, 1, 1,
-            2, 2, 2, 2,
-            3, 3, 3, 3,
-            3, 3, 3, 3,
-            3, 3, 3, 3,
-            3, 3, 3, 3,
-            3, 3, 3, 3,
-            3, 3, 3, 3,
+            0, 1, 2, 3,
+            4, 4, 5, 5,
+            6, 6, 6, 6,
+            6, 6, 6, 6,
+            6, 6, 6, 6,
+            7, 7, 7, 7,
+            7, 7, 7, 7,
+            7, 7, 7, 7,
         ]))
         .output_buckets(outputs::Single)
         .feature_transformer(HIDDEN_SIZE)
@@ -48,7 +48,7 @@ fn main() {
         .build();
 
     let schedule = TrainingSchedule {
-        net_id: "calvin_1024_4b_2".to_string(),
+        net_id: "calvin_1024_8b_2".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
@@ -66,7 +66,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
 
-    let data_loader = loader::DirectSequentialDataLoader::new(&["data/calvin_data.bin"]);
+    let data_loader = loader::DirectSequentialDataLoader::new(&["../calvindata.bin"]);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
