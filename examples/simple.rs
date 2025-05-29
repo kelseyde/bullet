@@ -21,7 +21,7 @@ use bullet_lib::{
 };
 use bullet_lib::default::inputs::ChessBucketsMirroredFactorised;
 
-const HIDDEN_SIZE: usize = 1152;
+const HIDDEN_SIZE: usize = 1024;
 const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
