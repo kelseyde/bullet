@@ -47,8 +47,8 @@ fn main() {
         .add_layer(1)
         .build();
 
-    let schedule = TrainingSchedule {
-        net_id: "calvin_1024_8b_2".to_string(),
+    let stage1 = TrainingSchedule {
+        net_id: "calvin_1024_8b_1".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
@@ -57,10 +57,23 @@ fn main() {
             end_superbatch: 800,
         },
         wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
-        lr_scheduler: lr::LinearDecayLR { initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 800 },
+        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 800 },
         save_rate: 10,
     };
 
+    let stage2 = TrainingSchedule {
+        net_id: "calvin_1024_8b_2".to_string(),
+        eval_scale: SCALE as f32,
+        steps: TrainingSteps {
+            batch_size: 16_384,
+            batches_per_superbatch: 6104,
+            start_superbatch: 1,
+            end_superbatch: 200,
+        },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
+        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.000027, final_lr: 0.00000405, final_superbatch: 200 },
+        save_rate: 10,
+    };
 
     trainer.set_optimiser_params(optimiser::AdamWParams::default());
 
@@ -68,7 +81,8 @@ fn main() {
 
     let data_loader = loader::DirectSequentialDataLoader::new(&["../calvindata.bin"]);
 
-    trainer.run(&schedule, &settings, &data_loader);
+    trainer.run(&stage1, &settings, &data_loader);
+    trainer.run(&stage2, &settings, &data_loader);
 }
 
 /*
