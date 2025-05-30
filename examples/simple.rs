@@ -56,7 +56,7 @@ fn main() {
             start_superbatch: 1,
             end_superbatch: 800,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.0 },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 800 },
         save_rate: 10,
     };
@@ -70,7 +70,7 @@ fn main() {
             start_superbatch: 1,
             end_superbatch: 200,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.0 },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.000027, final_lr: 0.00000405, final_superbatch: 200 },
         save_rate: 10,
     };
