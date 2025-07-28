@@ -2,28 +2,25 @@ pub use bullet_core::graph::{
     builder::{
         Activation, Affine, GraphBuilder as NetworkBuilder, GraphBuilderNode as NetworkBuilderNode, InitSettings, Shape,
     },
-    ir::args::GraphIRCompileArgs as GraphCompileArgs,
     Node,
 };
 pub type Graph = bullet_core::graph::Graph<ExecutionContext>;
 
 #[cfg(all(feature = "cpu", not(feature = "cuda")))]
-pub use bullet_core::backend::cpu::{CpuError as DeviceError, CpuThread as ExecutionContext};
+pub use bullet_core::cpu::{CpuError as DeviceError, CpuMarker as BackendMarker, CpuThread as ExecutionContext};
 
 #[cfg(all(any(feature = "hip", feature = "hip-cuda"), not(feature = "cpu"), not(feature = "cuda")))]
-pub use bullet_hip_backend::{DeviceError, ExecutionContext};
+pub use bullet_hip_backend::{DeviceError, ExecutionContext, HipMarker as BackendMarker};
 
 #[cfg(feature = "cuda")]
-pub use bullet_cuda_backend::{CudaDevice as ExecutionContext, CudaError as DeviceError};
+pub use bullet_cuda_backend::{CudaDevice as ExecutionContext, CudaError as DeviceError, CudaMarker as BackendMarker};
 
 pub mod optimiser {
     use crate::nn::ExecutionContext;
-    use bullet_core::optimiser::{self, clip, decay, radam, utils::Placement, OptimiserState};
-
-    type ClipAndDecay<T> = clip::WeightClipping<decay::WeightDecay<T>>;
+    use bullet_core::optimiser::{self, radam, OptimiserState};
 
     pub type AdamWOptimiser = optimiser::adam::AdamW<ExecutionContext>;
-    pub type RAdamOptimiser = ClipAndDecay<radam::RAdam<ExecutionContext>>;
+    pub type RAdamOptimiser = radam::RAdam<ExecutionContext>;
     pub type RangerOptimiser = optimiser::ranger::Ranger<ExecutionContext>;
     pub use optimiser::{adam::AdamWParams, ranger::RangerParams, Optimiser};
 
@@ -58,19 +55,14 @@ pub mod optimiser {
         pub max_weight: f32,
     }
 
-    type ClipAndDecayParams<T> = clip::WeightClippingParams<decay::WeightDecayParams<T>>;
-
-    impl From<RAdamParams> for ClipAndDecayParams<radam::RAdamParams> {
+    impl From<RAdamParams> for radam::RAdamParams {
         fn from(value: RAdamParams) -> Self {
-            clip::WeightClippingParams {
-                inner: decay::WeightDecayParams {
-                    inner: radam::RAdamParams { beta1: value.beta1, beta2: value.beta2, n_sma_threshold: 5.0 },
-                    placement: Placement::Before,
-                    decay: value.decay,
-                },
-                placement: Placement::After,
-                min: value.min_weight,
-                max: value.max_weight,
+            radam::RAdamParams {
+                beta1: value.beta1,
+                beta2: value.beta2,
+                n_sma_threshold: 5.0,
+                decay: value.decay,
+                clip: Some((value.min_weight, value.max_weight)),
             }
         }
     }

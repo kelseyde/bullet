@@ -6,83 +6,97 @@ There's potentially a lot of elo available by adjusting the wdl
 and lr schedulers, depending on your dataset.
 */
 use bullet_lib::{
-    nn::{optimiser, Activation},
-    trainer::{
-        default::{
-            formats::sfbinpack::{
-                chess::{piecetype::PieceType, r#move::MoveType},
-                TrainingDataEntry,
-            },
-            inputs, loader, outputs, Loss, TrainerBuilder,
+    game::{
+        formats::sfbinpack::{
+            chess::{piecetype::PieceType, r#move::MoveType},
+            TrainingDataEntry,
         },
+        inputs,
+    },
+    nn::optimiser,
+    trainer::{
+        save::SavedFormat,
         schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
     },
+    value::{loader, ValueTrainerBuilder},
 };
-use bullet_lib::default::inputs::ChessBucketsMirroredFactorised;
 
-const HIDDEN_SIZE: usize = 1024;
+const HIDDEN_SIZE: usize = 128;
 const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
 
 fn main() {
-    let mut trainer = TrainerBuilder::default()
-        .quantisations(&[QA, QB])
+    let mut trainer = ValueTrainerBuilder::default()
+        // makes `ntm_inputs` available below
+        .dual_perspective()
+        // standard optimiser used in NNUE
+        // the default AdamW params include clipping to range [-1.98, 1.98]
         .optimiser(optimiser::AdamW)
-        .loss_fn(Loss::SigmoidMSE)
-        .input(ChessBucketsMirroredFactorised::new([
-            0, 1, 2, 3,
-            4, 4, 5, 5,
-            6, 6, 6, 6,
-            6, 6, 6, 6,
-            6, 6, 6, 6,
-            7, 7, 7, 7,
-            7, 7, 7, 7,
-            7, 7, 7, 7,
-        ]))
-        .output_buckets(outputs::Single)
-        .feature_transformer(HIDDEN_SIZE)
-        .activate(Activation::SCReLU)
-        .add_layer(1)
-        .build();
+        // basic piece-square chessboard inputs
+        .inputs(inputs::Chess768)
+        // chosen such that inference may be efficiently implemented in-engine
+        .save_format(&[
+            SavedFormat::id("l0w").quantise::<i16>(255),
+            SavedFormat::id("l0b").quantise::<i16>(255),
+            SavedFormat::id("l1w").quantise::<i16>(64),
+            SavedFormat::id("l1b").quantise::<i16>(255 * 64),
+        ])
+        // map output into ranges [0, 1] to fit against our labels which
+        // are in the same range
+        // `target` == wdl * game_result + (1 - wdl) * sigmoid(search score in centipawns / SCALE)
+        // where `wdl` is determined by `wdl_scheduler`
+        .loss_fn(|output, target| output.sigmoid().squared_error(target))
+        // the basic `(768 -> N)x2 -> 1` inference
+        .build(|builder, stm_inputs, ntm_inputs| {
+            // weights
+            let l0 = builder.new_affine("l0", 768, HIDDEN_SIZE);
+            let l1 = builder.new_affine("l1", 2 * HIDDEN_SIZE, 1);
 
-    let stage1 = TrainingSchedule {
-        net_id: "calvin_1024_8b_1".to_string(),
+            // inference
+            let stm_hidden = l0.forward(stm_inputs).screlu();
+            let ntm_hidden = l0.forward(ntm_inputs).screlu();
+            let hidden_layer = stm_hidden.concat(ntm_hidden);
+            l1.forward(hidden_layer)
+        });
+
+    let schedule = TrainingSchedule {
+        net_id: "simple".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 800,
+            end_superbatch: 40,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: 0.0 },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 800 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
+        lr_scheduler: lr::StepLR { start: 0.001, gamma: 0.1, step: 18 },
         save_rate: 10,
     };
-
-    let stage2 = TrainingSchedule {
-        net_id: "calvin_1024_8b_2".to_string(),
-        eval_scale: SCALE as f32,
-        steps: TrainingSteps {
-            batch_size: 16_384,
-            batches_per_superbatch: 6104,
-            start_superbatch: 1,
-            end_superbatch: 200,
-        },
-        wdl_scheduler: wdl::ConstantWDL { value: 0.0 },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.000027, final_lr: 0.00000405, final_superbatch: 200 },
-        save_rate: 10,
-    };
-
-    trainer.set_optimiser_params(optimiser::AdamWParams::default());
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
 
-    let data_loader = loader::DirectSequentialDataLoader::new(&["../calvindata.bin"]);
+    // loading from a SF binpack
+    let _data_loader = {
+        let file_path = "data/test80-2024-02-feb-2tb7p.min-v2.v6.binpack";
+        let buffer_size_mb = 1024;
+        let threads = 4;
+        fn filter(entry: &TrainingDataEntry) -> bool {
+            entry.ply >= 16
+                && !entry.pos.is_checked(entry.pos.side_to_move())
+                && entry.score.unsigned_abs() <= 10000
+                && entry.mv.mtype() == MoveType::Normal
+                && entry.pos.piece_at(entry.mv.to()).piece_type() == PieceType::None
+        }
 
-    trainer.run(&stage1, &settings, &data_loader);
-    trainer.run(&stage2, &settings, &data_loader);
+        loader::SfBinpackLoader::new(file_path, buffer_size_mb, threads, filter)
+    };
+
+    // loading directly from a `BulletFormat` file
+    let data_loader = loader::DirectSequentialDataLoader::new(&["data/baseline.data"]);
+
+    trainer.run(&schedule, &settings, &data_loader);
 }
 
 /*

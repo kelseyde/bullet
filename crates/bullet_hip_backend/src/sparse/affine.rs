@@ -1,6 +1,6 @@
 use bullet_core::{
-    backend::device::{DeviceBuffer, OperationError},
-    graph::ir::{op::DiffableFromOutput, shape::Shape},
+    device::{DeviceBuffer, OperationError},
+    graph::ir::{operation::unary::DiffableFromOutput, shape::Shape},
 };
 
 use crate::{
@@ -16,6 +16,7 @@ pub fn sparse_affine(
     input_a: &Buffer<f32>,
     shape_a: Shape,
     input_b: &Buffer<i32>,
+    input_b_vals: Option<&Buffer<f32>>,
     shape_b: Shape,
     nnz: usize,
     input_c: Option<&Buffer<f32>>,
@@ -32,6 +33,16 @@ pub fn sparse_affine(
     {
         return Err(OperationError::IndexOutOfBounds);
     }
+
+    let v_ptr = if let Some(v) = input_b_vals {
+        if batch_size * nnz > v.size() {
+            return Err(OperationError::IndexOutOfBounds);
+        }
+
+        v.ptr()
+    } else {
+        std::ptr::null()
+    };
 
     let c_ptr = if let Some(c) = input_c {
         if shape_o.size() * if input_c_batched { batch_size } else { 1 } > c.size() {
@@ -54,6 +65,7 @@ pub fn sparse_affine(
             input_c_batched,
             input_a.ptr(),
             input_b.ptr(),
+            v_ptr,
             c_ptr,
             output.mut_ptr().add(offset),
         );
@@ -67,13 +79,12 @@ pub fn backprop_sparse_affine(
     batch_size: usize,
     stride: Option<bool>,
     activation: DiffableFromOutput,
-    input_a: &Buffer<f32>,
     input_a_grad: &mut Buffer<f32>,
     shape_a: Shape,
     input_b: &Buffer<i32>,
+    input_b_vals: Option<&Buffer<f32>>,
     shape_b: Shape,
     nnz: usize,
-    _input_c: Option<&Buffer<f32>>,
     input_c_grad: Option<&mut Buffer<f32>>,
     input_c_batched: bool,
     outputs: &Buffer<f32>,
@@ -85,14 +96,23 @@ pub fn backprop_sparse_affine(
 
     assert_eq!(shape_b.cols(), 1);
     assert_eq!(shape_o.cols(), 1);
-    if shape_a.size() > input_a.size()
-        || shape_a.size() > input_a_grad.size()
+    if shape_a.size() > input_a_grad.size()
         || batch_size * nnz > input_b.size()
         || batch_size * shape_o.size() > outputs.size()
         || batch_size * shape_o.size() * stride > output_grad.size()
     {
         return Err(OperationError::IndexOutOfBounds);
     }
+
+    let v_ptr = if let Some(v) = input_b_vals {
+        if batch_size * nnz > v.size() {
+            return Err(OperationError::IndexOutOfBounds);
+        }
+
+        v.ptr()
+    } else {
+        std::ptr::null()
+    };
 
     let c_ptr = if let Some(grad) = input_c_grad {
         if shape_o.size() * if input_c_batched { batch_size } else { 1 } > grad.size() {
@@ -114,6 +134,7 @@ pub fn backprop_sparse_affine(
             batch_size,
             input_c_batched,
             input_b.ptr(),
+            v_ptr,
             outputs.ptr().add(offset),
             output_grad.ptr().add(offset),
             input_a_grad.mut_ptr(),

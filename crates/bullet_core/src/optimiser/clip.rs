@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::backend::{
+use crate::{
     device::{Device, OperationError},
-    tensor::DenseMatrix,
+    graph::tensor::DenseMatrix,
 };
 
 use super::{utils::Placement, OptimiserState};
@@ -74,7 +74,7 @@ impl<D: Device, S: OptimiserState<D>> OptimiserState<D> for WeightClipping<S> {
         map: &mut HashMap<String, &mut Self>,
         path: &str,
         old_format: bool,
-    ) -> Result<(), D::DeviceError> {
+    ) -> Result<(), OperationError<D::DeviceError>> {
         let mut map = map.iter_mut().map(|(id, single)| (id.clone(), &mut single.inner)).collect();
         S::load_from_checkpoint(&mut map, path, old_format)
     }

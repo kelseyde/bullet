@@ -1,11 +1,9 @@
-/*
-The exact training used for akimbo's current network, updated as I merge new nets.
-*/
+#![allow(deprecated)]
 use bullet_lib::{
     nn::{optimiser, Activation},
     trainer::{
         default::{
-            inputs, loader, outputs,
+            inputs, loader,
             testing::{Engine, GameRunnerPath, OpenBenchCompliant, OpeningBook, TestSettings, TimeControl, UciOption},
             Loss, TrainerBuilder,
         },
@@ -32,7 +30,6 @@ fn main() {
             3, 3, 3, 3,
             3, 3, 3, 3,
         ]))
-        .output_buckets(outputs::Single)
         .feature_transformer(1024)
         .activate(Activation::SCReLU)
         .add_layer(1)

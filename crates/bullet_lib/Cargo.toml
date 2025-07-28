@@ -24,40 +24,40 @@ bullet_core = { workspace = true }
 bulletformat = { workspace = true }
 montyformat = { workspace = true }
 sfbinpack = "0.4.1"
-viriformat = "1.0.0"
+viriformat = "2.0.0"
 
 [[example]]
 name = "advanced"
-path = "../../examples/advanced.rs"
+path = "../../examples/advanced/main.rs"
 
 [[example]]
 name = "simple"
 path = "../../examples/simple.rs"
 
 [[example]]
-name = "testnet"
-path = "../../examples/testnet.rs"
+name = "test1"
+path = "../../examples/tests/test1.rs"
 
 [[example]]
-name = "morelayers"
-path = "../../examples/morelayers.rs"
+name = "test2"
+path = "../../examples/tests/test2.rs"
 
 [[example]]
 name = "akimbo-main"
 path = "../../examples/extra/akimbo-main.rs"
 
 [[example]]
-name = "ataxx"
-path = "../../examples/extra/ataxx.rs"
+name = "1_simple"
+path = "../../examples/progression/1_simple.rs"
 
 [[example]]
-name = "relabel"
-path = "../../examples/extra/relabel.rs"
+name = "2_output_buckets"
+path = "../../examples/progression/2_output_buckets.rs"
 
 [[example]]
-name = "attention"
-path = "../../examples/extra/attention.rs"
+name = "3_input_buckets"
+path = "../../examples/progression/3_input_buckets.rs"
 
 [[example]]
-name = "policy"
-path = "../../examples/extra/policy.rs"
+name = "4_multi_layer"
+path = "../../examples/progression/4_multi_layer.rs"
