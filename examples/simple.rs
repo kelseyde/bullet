@@ -22,7 +22,7 @@ use bullet_lib::{
     value::{loader, ValueTrainerBuilder},
 };
 
-const HIDDEN_SIZE: usize = 64;
+const HIDDEN_SIZE: usize = 128;
 const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
@@ -62,7 +62,7 @@ fn main() {
         });
 
     let schedule = TrainingSchedule {
-        net_id: "simple".to_string(),
+        net_id: "hobbes-x".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
@@ -70,7 +70,7 @@ fn main() {
             start_superbatch: 1,
             end_superbatch: 400,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: 1.0 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.5 },
         lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 400},
         save_rate: 10,
     };
@@ -78,7 +78,7 @@ fn main() {
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
 
     // loading directly from a `BulletFormat` file
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-random.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-x.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
