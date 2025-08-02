@@ -22,7 +22,7 @@ use bullet_lib::{
     value::{loader, ValueTrainerBuilder},
 };
 
-const HIDDEN_SIZE: usize = 128;
+const HIDDEN_SIZE: usize = 256;
 const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
@@ -70,15 +70,15 @@ fn main() {
             start_superbatch: 1,
             end_superbatch: 400,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: 0.5 },
-        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 400},
+        wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
+        lr_scheduler: lr::LinearDecayLR {initial_lr: 0.001, final_lr: 0.000027, final_superbatch: 400},
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
 
     // loading directly from a `BulletFormat` file
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-x.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-2-3-4-5.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
