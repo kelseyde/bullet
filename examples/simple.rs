@@ -75,7 +75,7 @@ fn main() {
         save_rate: 10,
     };
 
-    let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
+    let settings = LocalSettings { threads: 20, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
 
     // loading directly from a `BulletFormat` file
     let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-2-3-4-5.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
