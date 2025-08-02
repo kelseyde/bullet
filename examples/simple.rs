@@ -62,7 +62,7 @@ fn main() {
         });
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-x".to_string(),
+        net_id: "hobbes-8".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
