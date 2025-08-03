@@ -38,7 +38,7 @@ fn main() {
         .dual_perspective()
         .optimiser(AdamW)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
-        .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
+        // .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
         .save_format(&[
             // merge in the factoriser weights
             SavedFormat::id("l0w")
