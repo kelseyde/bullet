@@ -58,7 +58,7 @@ fn main() {
             SavedFormat::id("l1b").quantise::<i16>(255 * 64),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
+        .build(|builder, stm_inputs, ntm_inputs| {
             // input layer factoriser
             let l0f = builder.new_weights("l0f", Shape::new(HL_SIZE, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(NUM_INPUT_BUCKETS);
@@ -74,7 +74,7 @@ fn main() {
             let stm_hidden = l0.forward(stm_inputs).screlu();
             let ntm_hidden = l0.forward(ntm_inputs).screlu();
             let hidden_layer = stm_hidden.concat(ntm_hidden);
-            l1.forward(hidden_layer).select(output_buckets)
+            l1.forward(hidden_layer)
         });
 
     // need to account for factoriser weight magnitudes
