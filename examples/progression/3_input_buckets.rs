@@ -18,12 +18,7 @@ use bullet_lib::default::loader;
 
 fn main() {
     // hyperparams to fiddle with
-    let hl_size = 256;
-    let dataset_path = "/workspace/hobbes-234567.vf";
-    let initial_lr = 0.001;
-    let final_lr = 0000081;
-    let superbatches = 400;
-    let wdl_proportion = 0.4;
+    const HL_SIZE: usize = 256;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -65,15 +60,15 @@ fn main() {
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
         .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer factoriser
-            let l0f = builder.new_weights("l0f", Shape::new(hl_size, 768), InitSettings::Zeroed);
+            let l0f = builder.new_weights("l0f", Shape::new(HL_SIZE, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(NUM_INPUT_BUCKETS);
 
             // input layer weights
-            let mut l0 = builder.new_affine("l0", 768 * NUM_INPUT_BUCKETS, hl_size);
+            let mut l0 = builder.new_affine("l0", 768 * NUM_INPUT_BUCKETS, HL_SIZE);
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
-            let l1 = builder.new_affine("l1", 2 * hl_size, NUM_OUTPUT_BUCKETS);
+            let l1 = builder.new_affine("l1", 2 * HL_SIZE, NUM_OUTPUT_BUCKETS);
 
             // inference
             let stm_hidden = l0.forward(stm_inputs).screlu();
@@ -94,16 +89,16 @@ fn main() {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: superbatches,
+            end_superbatch: 400,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: wdl_proportion },
-        lr_scheduler: lr::CosineDecayLR { initial_lr, final_lr, final_superbatch: superbatches },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
+        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = loader::ViriBinpackLoader::new(dataset_path, 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-234567.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
