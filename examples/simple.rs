@@ -71,14 +71,14 @@ fn main() {
             end_superbatch: 400,
         },
         wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
-        lr_scheduler: lr::LinearDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
+        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 20, test_set: None, output_directory: "checkpoints", batch_queue_size: 64 };
 
     // loading directly from a `BulletFormat` file
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-2-3-4-5.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-234567.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }

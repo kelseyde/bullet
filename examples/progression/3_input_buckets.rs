@@ -14,26 +14,27 @@ use bullet_lib::{
     },
     value::{loader::DirectSequentialDataLoader, ValueTrainerBuilder},
 };
+use bullet_lib::default::loader;
 
 fn main() {
     // hyperparams to fiddle with
-    let hl_size = 1024;
-    let dataset_path = "data/baseline.data";
+    let hl_size = 256;
+    let dataset_path = "/workspace/hobbes-234567.vf";
     let initial_lr = 0.001;
-    let final_lr = 0.001 * 0.3f32.powi(5);
-    let superbatches = 640;
-    let wdl_proportion = 0.75;
-    const NUM_OUTPUT_BUCKETS: usize = 8;
+    let final_lr = 0000081;
+    let superbatches = 400;
+    let wdl_proportion = 0.4;
+    const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
-        0, 1, 2, 3,
-        4, 4, 5, 5,
-        6, 6, 6, 6,
-        7, 7, 7, 7,
-        8, 8, 8, 8,
-        8, 8, 8, 8,
-        9, 9, 9, 9,
-        9, 9, 9, 9,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
@@ -100,9 +101,9 @@ fn main() {
         save_rate: 10,
     };
 
-    let settings = LocalSettings { threads: 2, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
+    let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let dataloader = DirectSequentialDataLoader::new(&[dataset_path]);
+    let data_loader = loader::ViriBinpackLoader::new(dataset_path, 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
-    trainer.run(&schedule, &settings, &dataloader);
+    trainer.run(&schedule, &settings, &data_loader);
 }
