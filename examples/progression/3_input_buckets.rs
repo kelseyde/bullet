@@ -1,10 +1,9 @@
+use bullet_core::optimiser::ranger::RangerParams;
+use bullet_lib::default::loader;
+use bullet_lib::nn::optimiser::Ranger;
 use bullet_lib::{
-    game::{
-        inputs::{get_num_buckets, ChessBucketsMirrored},
-        outputs::MaterialCount,
-    },
+    game::inputs::{get_num_buckets, ChessBucketsMirrored},
     nn::{
-        optimiser::{AdamW, AdamWParams},
         InitSettings, Shape,
     },
     trainer::{
@@ -12,9 +11,8 @@ use bullet_lib::{
         schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
     },
-    value::{loader::DirectSequentialDataLoader, ValueTrainerBuilder},
+    value::ValueTrainerBuilder,
 };
-use bullet_lib::default::loader;
 
 fn main() {
     // hyperparams to fiddle with
@@ -36,7 +34,7 @@ fn main() {
 
     let mut trainer = ValueTrainerBuilder::default()
         .dual_perspective()
-        .optimiser(AdamW)
+        .optimiser(Ranger)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
         // .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
         .save_format(&[
@@ -78,7 +76,7 @@ fn main() {
         });
 
     // need to account for factoriser weight magnitudes
-    let stricter_clipping = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
+    let stricter_clipping = RangerParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
