@@ -18,7 +18,7 @@ use bullet_lib::default::loader;
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 384;
+    const HL_SIZE: usize = 512;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -98,7 +98,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-2345678.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-5-to-11.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
