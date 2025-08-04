@@ -1,6 +1,6 @@
-use bullet_core::optimiser::ranger::RangerParams;
+use bullet_core::optimiser::adam::AdamWParams;
 use bullet_lib::default::loader;
-use bullet_lib::nn::optimiser::Ranger;
+use bullet_lib::nn::optimiser::AdamW;
 use bullet_lib::{
     game::inputs::{get_num_buckets, ChessBucketsMirrored},
     nn::{
@@ -16,7 +16,7 @@ use bullet_lib::{
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 512;
+    const HL_SIZE: usize = 768;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -34,7 +34,7 @@ fn main() {
 
     let mut trainer = ValueTrainerBuilder::default()
         .dual_perspective()
-        .optimiser(Ranger)
+        .optimiser(AdamW)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
         // .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
         .save_format(&[
@@ -76,12 +76,12 @@ fn main() {
         });
 
     // need to account for factoriser weight magnitudes
-    let stricter_clipping = RangerParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
+    let stricter_clipping = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-13_2".to_string(),
+        net_id: "hobbes-13_3".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
@@ -96,7 +96,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-5-to-11.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-5-to-12.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
