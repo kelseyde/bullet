@@ -13,11 +13,12 @@ use bullet_lib::{
     },
     value::ValueTrainerBuilder,
 };
+use bullet_lib::default::outputs::MaterialCount;
 
 fn main() {
     // hyperparams to fiddle with
     const HL_SIZE: usize = 1024;
-    const NUM_OUTPUT_BUCKETS: usize = 1;
+    const NUM_OUTPUT_BUCKETS: usize = 8;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
         0, 0, 0, 0,
@@ -36,7 +37,7 @@ fn main() {
         .dual_perspective()
         .optimiser(AdamW)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
-        // .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
+        .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
         .save_format(&[
             // merge in the factoriser weights
             SavedFormat::id("l0w")
@@ -56,7 +57,7 @@ fn main() {
             SavedFormat::id("l1b").quantise::<i16>(255 * 64),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build(|builder, stm_inputs, ntm_inputs| {
+        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer factoriser
             let l0f = builder.new_weights("l0f", Shape::new(HL_SIZE, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(NUM_INPUT_BUCKETS);
@@ -72,7 +73,7 @@ fn main() {
             let stm_hidden = l0.forward(stm_inputs).screlu();
             let ntm_hidden = l0.forward(ntm_inputs).screlu();
             let hidden_layer = stm_hidden.concat(ntm_hidden);
-            l1.forward(hidden_layer)
+            l1.forward(hidden_layer).select(output_buckets)
         });
 
     // need to account for factoriser weight magnitudes
@@ -81,7 +82,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-15".to_string(),
+        net_id: "hobbes-16".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
