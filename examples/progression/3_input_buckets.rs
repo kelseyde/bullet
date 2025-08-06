@@ -13,12 +13,11 @@ use bullet_lib::{
     },
     value::ValueTrainerBuilder,
 };
-use bullet_lib::default::outputs::MaterialCount;
 
 fn main() {
     // hyperparams to fiddle with
     const HL_SIZE: usize = 1024;
-    // const NUM_OUTPUT_BUCKETS: usize = 1;
+    const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
         0, 0, 0, 0,
@@ -67,7 +66,7 @@ fn main() {
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
-            let l1 = builder.new_affine("l1", 2 * HL_SIZE, 1);
+            let l1 = builder.new_affine("l1", 2 * HL_SIZE, NUM_OUTPUT_BUCKETS);
 
             // inference
             let stm_hidden = l0.forward(stm_inputs).screlu();
@@ -82,22 +81,22 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-16-4".to_string(),
+        net_id: "hobbes-15".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 600,
+            end_superbatch: 400,
         },
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.3, end: 0.4 } },
-        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.00000243, final_superbatch: 600},
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
+        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-13.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-15.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
