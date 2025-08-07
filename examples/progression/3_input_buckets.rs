@@ -96,7 +96,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-13.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-15.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
