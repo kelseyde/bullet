@@ -21,13 +21,13 @@ fn main() {
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
         0, 0, 1, 1,
-        2, 2, 2, 2,
-        3, 3, 3, 3,
-        3, 3, 3, 3,
-        3, 3, 3, 3,
-        3, 3, 3, 3,
-        3, 3, 3, 3,
-        3, 3, 3, 3,
+        2, 2, 3, 3,
+        4, 4, 4, 4,
+        4, 4, 4, 4,
+        4, 4, 4, 4,
+        5, 5, 5, 5,
+        5, 5, 5, 5,
+        5, 5, 5, 5,
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
@@ -81,7 +81,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-16-6".to_string(),
+        net_id: "hobbes-17".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
