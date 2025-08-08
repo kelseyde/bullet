@@ -21,13 +21,13 @@ fn main() {
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
         0, 0, 1, 1,
-        2, 2, 3, 3,
-        4, 4, 4, 4,
-        4, 4, 4, 4,
-        4, 4, 4, 4,
-        5, 5, 5, 5,
-        5, 5, 5, 5,
-        5, 5, 5, 5,
+        2, 2, 2, 2,
+        3, 3, 3, 3,
+        3, 3, 3, 3,
+        3, 3, 3, 3,
+        3, 3, 3, 3,
+        3, 3, 3, 3,
+        3, 3, 3, 3,
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
@@ -96,7 +96,13 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-15.vf", 1024 * 8, 4, viriformat::dataformat::Filter::default());
+    let filter = viriformat::dataformat::Filter {
+        random_fen_skipping: true,
+        random_fen_skip_probability: 0.01,
+        ..Default::default()
+    };
+
+    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-16.vf", 1024 * 8, 4, filter);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
