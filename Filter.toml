@@ -1,0 +1,9 @@
+min_ply = 16
+min_pieces = 4
+max_eval = 10000
+filter_tactical = true
+filter_check = true
+filter_castling = true
+max_eval_incorrectness = 4294967295
+material_min = 17
+material_max = 78

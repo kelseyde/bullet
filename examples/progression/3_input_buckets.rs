@@ -13,6 +13,7 @@ use bullet_lib::{
     },
     value::ValueTrainerBuilder,
 };
+use bullet_lib::default::loader::DirectSequentialDataLoader;
 
 fn main() {
     // hyperparams to fiddle with
@@ -96,13 +97,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let filter = viriformat::dataformat::Filter {
-        random_fen_skipping: true,
-        random_fen_skip_probability: 0.01,
-        ..Default::default()
-    };
-
-    let data_loader = loader::ViriBinpackLoader::new("/workspace/hobbes-6-to-16.vf", 1024 * 8, 4, filter);
+    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-6-to-16-shuffled.bin"]);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
