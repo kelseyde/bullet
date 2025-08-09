@@ -81,14 +81,6 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
-    let wdl_scheduler = wdl::Sequence {
-        first: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
-        second: wdl::ConstantWDL { value: 0.5 },
-        first_scheduler_final_superbatch: 400
-    };
-
-    let lr_scheduler = lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 500 };
-
     let schedule = TrainingSchedule {
         net_id: "hobbes-19".to_string(),
         eval_scale: 400.0,
@@ -96,10 +88,10 @@ fn main() {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 500,
+            end_superbatch: 400,
         },
-        wdl_scheduler,
-        lr_scheduler,
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
+        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
         save_rate: 10,
     };
 
