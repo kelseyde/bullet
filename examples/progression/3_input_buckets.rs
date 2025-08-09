@@ -82,7 +82,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let wdl_scheduler = wdl::Sequence {
-        first: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.3, end: 0.5 } },
+        first: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
         second: wdl::ConstantWDL { value: 0.5 },
         first_scheduler_final_superbatch: 400
     };
