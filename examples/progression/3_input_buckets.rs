@@ -14,6 +14,7 @@ use bullet_lib::{
     value::ValueTrainerBuilder,
 };
 use bullet_lib::default::loader::DirectSequentialDataLoader;
+use bullet_lib::value::ValueTrainer;
 
 fn main() {
     // hyperparams to fiddle with
@@ -84,7 +85,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-20-8b-reloaded".to_string(),
+        net_id: "hobbes-20-8b".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
