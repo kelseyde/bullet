@@ -116,7 +116,7 @@ fn main() {
     };
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-20",
+        net_id: "hobbes-20".to_string(),
         eval_scale: 400.0,
         steps,
         wdl_scheduler,
