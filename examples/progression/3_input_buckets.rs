@@ -77,15 +77,13 @@ fn main() {
             l1.forward(hidden_layer)
         });
 
-    trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-20-8b-160");
-
     // need to account for factoriser weight magnitudes
     let stricter_clipping = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-20-8b".to_string(),
+        net_id: "hobbes-20-8b-2".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
