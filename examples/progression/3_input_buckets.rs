@@ -81,18 +81,47 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
-    let schedule = TrainingSchedule {
-        net_id: "hobbes-20".to_string(),
-        eval_scale: 400.0,
-        steps: TrainingSteps {
-            batch_size: 16_384,
-            batches_per_superbatch: 6104,
-            start_superbatch: 1,
-            end_superbatch: 400,
+    const STAGE1_SBS: usize = 100;
+    const STAGE2_SBS: usize = 800;
+    const STAGE3_SBS: usize = 100;
+
+    let steps = TrainingSteps {
+        batch_size: 16_384,
+        batches_per_superbatch: 6104,
+        start_superbatch: 1,
+        end_superbatch: STAGE1_SBS + STAGE2_SBS + STAGE3_SBS,
+    };
+
+    let wdl_scheduler = wdl::Sequence {
+        first: wdl::Sequence {
+            first: wdl::ConstantWDL { value: 0.2 },
+            second: wdl::LinearWDL { start: 0.4, end: 0.6 },
+            first_scheduler_final_superbatch: STAGE1_SBS,
         },
-        wdl_scheduler: wdl::LinearWDL { start: 0.2, end: 0.4 },
-        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
-        save_rate: 10,
+        second: wdl::ConstantWDL { value: 0.8, },
+        first_scheduler_final_superbatch: STAGE1_SBS + STAGE2_SBS,
+    };
+
+    let lr_scheduler = lr::Sequence {
+        first: lr::Sequence {
+            first: lr::Warmup {
+                inner: lr::LinearDecayLR { initial_lr: 0.001, final_lr: 0.000027, final_superbatch: STAGE1_SBS, },
+                warmup_batches: 200,
+            },
+            second: lr::LinearDecayLR { initial_lr: 0.001, final_lr: 0.000027, final_superbatch: STAGE2_SBS, },
+            first_scheduler_final_superbatch: STAGE1_SBS,
+        },
+        second: lr::LinearDecayLR { initial_lr: 0.000025, final_lr: 0.0000025, final_superbatch: STAGE3_SBS, },
+        first_scheduler_final_superbatch: STAGE1_SBS + STAGE2_SBS,
+    };
+
+    let schedule = TrainingSchedule {
+        net_id: "hobbes-20",
+        eval_scale: 400.0,
+        steps,
+        wdl_scheduler,
+        lr_scheduler,
+        save_rate: 50,
     };
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
