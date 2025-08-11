@@ -92,7 +92,7 @@ fn main() {
         },
         // wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
         wdl_scheduler: wdl::Sequence {
-            first: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
+            first: wdl::Warmup { warmup_batches: 75, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
             second: wdl::ConstantWDL { value: 0.5 },
             first_scheduler_final_superbatch: 325,
         },
