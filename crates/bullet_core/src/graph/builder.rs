@@ -40,15 +40,15 @@ pub struct GraphBuilder<B: BackendMarker> {
 }
 
 impl<B: BackendMarker> GraphBuilder<B> {
-    fn ir(&self) -> MutexGuard<GraphIR<B>> {
+    fn ir(&self) -> MutexGuard<'_, GraphIR<B>> {
         self.ir.try_lock().unwrap()
     }
 
-    fn init(&self) -> MutexGuard<HashMap<String, InitSettings>> {
+    fn init(&self) -> MutexGuard<'_, HashMap<String, InitSettings>> {
         self.init_data.try_lock().unwrap()
     }
 
-    pub fn apply(&self, operation: impl GraphIROperationCompilable<B>) -> GraphBuilderNode<B> {
+    pub fn apply(&self, operation: impl GraphIROperationCompilable<B>) -> GraphBuilderNode<'_, B> {
         match self.ir().add_op(operation) {
             Ok(node) => GraphBuilderNode { node, builder: self },
             Err(e) => {
@@ -69,7 +69,7 @@ impl<B: BackendMarker> GraphBuilder<B> {
     }
 
     pub fn new_constant<'a>(&'a self, shape: Shape, vals: &[f32]) -> GraphBuilderNode<'a, B> {
-        let node = self.ir().add_node(None, None, shape, false, false, None).unwrap();
+        let node = self.ir().add_constant(shape).unwrap();
         assert_eq!(shape.size(), vals.len(), "Shape of constant does not match provided values!");
         self.consts.try_lock().unwrap().insert(node.idx, vals.to_vec());
         GraphBuilderNode { node, builder: self }
@@ -81,11 +81,17 @@ impl<B: BackendMarker> GraphBuilder<B> {
         GraphBuilderNode { node, builder: self }
     }
 
-    pub fn new_affine(&self, id: &str, input_size: usize, output_size: usize) -> Affine<B> {
+    pub fn new_affine(&self, id: &str, input_size: usize, output_size: usize) -> Affine<'_, B> {
         self.new_affine_custom(id, input_size, output_size, 1)
     }
 
-    pub fn new_affine_custom(&self, id: &str, input_size: usize, output_size: usize, bias_cols: usize) -> Affine<B> {
+    pub fn new_affine_custom(
+        &self,
+        id: &str,
+        input_size: usize,
+        output_size: usize,
+        bias_cols: usize,
+    ) -> Affine<'_, B> {
         let wid = format!("{id}w");
         let init = InitSettings::Normal { mean: 0.0, stdev: (2.0 / (input_size as f32 * bias_cols as f32)).sqrt() };
         let weights = self.new_weights(&wid, Shape::new(output_size, input_size), init);
