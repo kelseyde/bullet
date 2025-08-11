@@ -90,14 +90,14 @@ fn main() {
             start_superbatch: 1,
             end_superbatch: 400,
         },
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.45 } },
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
         lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 400},
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-6-to-16-shuffled.bin"]);
+    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-6-to-19-shuffled.bin"]);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
