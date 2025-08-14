@@ -82,7 +82,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-20-aaah".to_string(),
+        net_id: "hobbes-21".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
@@ -97,7 +97,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-6-to-19-shuffled.bin"]);
+    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-6-to-20-shuffled.bin"]);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
