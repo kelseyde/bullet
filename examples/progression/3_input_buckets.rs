@@ -93,7 +93,7 @@ fn main() {
         save_rate: 10,
     };
 
-    let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
+    let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
     let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes.bin"]);
 
