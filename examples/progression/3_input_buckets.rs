@@ -95,7 +95,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 4, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-6-to-25-shuffled.bin"]);
+    let data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes.bin"]);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
