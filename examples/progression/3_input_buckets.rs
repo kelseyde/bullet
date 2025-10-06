@@ -86,7 +86,7 @@ fn main() {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 800,
+            end_superbatch: 1000,
         },
         wdl_scheduler: wdl::Sequence {
             first: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
