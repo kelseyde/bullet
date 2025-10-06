@@ -16,7 +16,7 @@ use bullet_lib::{
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 1024;
+    const HL_SIZE: usize = 1280;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -80,7 +80,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-29".to_string(),
+        net_id: "hobbes-30".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
