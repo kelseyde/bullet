@@ -16,18 +16,18 @@ use bullet_lib::{
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 1280;
+    const HL_SIZE: usize = 1024;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
         0, 1, 2, 3,
         4, 5, 6, 7,
-        8, 8, 8, 8,
-        9, 9, 9, 9,
-        9, 9, 9, 9,
-        9, 9, 9, 9,
-        9, 9, 9, 9,
-        9, 9, 9, 9,
+        8, 8, 9, 9,
+        10, 10, 10, 10,
+        10, 10, 10, 10,
+        11, 11, 11, 11,
+        11, 11, 11, 11,
+        11, 11, 11, 11,
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
@@ -80,24 +80,16 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let schedule = TrainingSchedule {
-        net_id: "hobbes-30".to_string(),
+        net_id: "hobbes-29".to_string(),
         eval_scale: 400.0,
         steps: TrainingSteps {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 1000,
+            end_superbatch: 800,
         },
-        wdl_scheduler: wdl::Sequence {
-            first: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
-            first_scheduler_final_superbatch: 800,
-            second: wdl::ConstantWDL { value: 0.4 },
-        },
-        lr_scheduler: lr::Sequence {
-            first: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
-            first_scheduler_final_superbatch: 800,
-            second: lr::ConstantLR { value: 0.0000081 / 10.0 },
-        },
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
+        lr_scheduler: lr::CosineDecayLR {initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800},
         save_rate: 10,
     };
 
