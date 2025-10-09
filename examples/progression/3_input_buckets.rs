@@ -82,18 +82,18 @@ fn main() {
     let stage_1_schedule = TrainingSchedule {
         net_id: "hobbes-33-s1".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 800),
+        steps: training_steps(1, 600),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
+        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 600 },
         save_rate: 10,
     };
 
     let stage_2_schedule = TrainingSchedule {
         net_id: "hobbes-33-s2".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 200),
+        steps: training_steps(1, 400),
         wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
-        lr_scheduler: lr::LinearDecayLR { initial_lr: 0.00000081, final_lr: 0.000000162, final_superbatch: 200 },
+        lr_scheduler: lr::LinearDecayLR { initial_lr: 0.00000081, final_lr: 0.000000162, final_superbatch: 400 },
         save_rate: 10,
     };
 
