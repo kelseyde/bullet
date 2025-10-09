@@ -92,7 +92,7 @@ fn main() {
         net_id: "hobbes-33-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
+        wdl_scheduler: wdl::LinearWDL { start: 0.6, end: 0.8 },
         lr_scheduler: lr::ConstantLR { value: 0.0000081 / 10.0 },
         save_rate: 10,
     };
