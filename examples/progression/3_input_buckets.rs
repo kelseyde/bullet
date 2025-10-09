@@ -99,7 +99,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-finetune.bin"]);
+    let stage1_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes.bin"]);
     let stage2_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-finetune.bin"]);
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
