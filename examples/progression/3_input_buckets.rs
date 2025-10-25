@@ -102,6 +102,7 @@ fn main() {
     let stage1_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-all.bin"]);
     let stage2_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-best.bin"]);
 
+    trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-34-s1-310");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // space needed on cluster: 1.2TB
