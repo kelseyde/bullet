@@ -20,14 +20,14 @@ fn main() {
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
-        0, 1, 2, 3,
-        4, 5, 6, 7,
-        8, 8, 8, 8,
-        9, 9, 9, 9,
-        10, 10, 10, 10,
-        10, 10, 10, 10,
-        11, 11, 11, 11,
-        11, 11, 11, 11,
+         0,  1,  2,  3,
+         4,  5,  6,  7,
+         8,  9, 10, 11,
+         8,  9, 10, 11,
+        12, 12, 13, 13,
+        12, 12, 13, 13,
+        14, 14, 15, 15,
+        14, 14, 15, 15
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
@@ -80,7 +80,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-33-s1".to_string(),
+        net_id: "hobbes-34-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
@@ -89,7 +89,7 @@ fn main() {
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-33-s2".to_string(),
+        net_id: "hobbes-34-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
         wdl_scheduler: wdl::ConstantWDL { value: 0.4 },
