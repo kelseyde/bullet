@@ -82,7 +82,7 @@ fn main() {
     let stage_1_schedule = TrainingSchedule {
         net_id: "hobbes-34-s1".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 800),
+        steps: training_steps(310, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
