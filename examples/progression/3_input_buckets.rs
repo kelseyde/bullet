@@ -99,8 +99,8 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-all.vf", 1024, 4, fen_skipping_filter(0.01));
-    let stage2_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-best.vf", 1024, 4, fen_skipping_filter(0.01));
+    let stage1_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-all.vf", 1024, 4, fen_skipping_filter(0.75));
+    let stage2_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-best.vf", 1024, 4, fen_skipping_filter(0.75));
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
