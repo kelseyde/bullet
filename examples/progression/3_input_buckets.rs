@@ -1,3 +1,4 @@
+use viriformat::dataformat::Filter;
 use bullet_lib::{
     game::{
         inputs::{ChessBucketsMirrored, get_num_buckets},
@@ -13,6 +14,8 @@ use bullet_lib::{
     },
     value::{ValueTrainerBuilder, loader::DirectSequentialDataLoader},
 };
+use bullet_lib::value::loader::viribinpack::ViriFilter;
+use bullet_lib::value::loader::ViriBinpackLoader;
 
 fn main() {
     // hyperparams to fiddle with
@@ -99,13 +102,13 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-all.bin"]);
-    let stage2_data_loader = DirectSequentialDataLoader::new(&["/workspace/hobbes-best.bin"]);
+    let stage1_data_loader = ViriBinpackLoader::new(&["/workspace/data/hobbes-all.vf"], 1024, 4, fen_skipping_filter(0.01));
+    let stage2_data_loader = ViriBinpackLoader::new(&["/workspace/data/hobbes-best.vf"], 1024, 4, fen_skipping_filter(0.01));
 
     trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-34-s1-310");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
-    // space needed on cluster: 1.2TB
+    // space needed on cluster: 1.2TB BF
 }
 
 fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSteps {
@@ -114,5 +117,13 @@ fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSte
         batches_per_superbatch: 6104,
         start_superbatch,
         end_superbatch,
+    }
+}
+
+fn fen_skipping_filter(probability: f64) -> Filter {
+    Filter {
+        random_fen_skipping: true,
+        random_fen_skip_probability: probability,
+        ..Default::default()
     }
 }
