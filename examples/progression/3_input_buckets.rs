@@ -82,7 +82,7 @@ fn main() {
     let stage_1_schedule = TrainingSchedule {
         net_id: "hobbes-34-s1".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(310, 800),
+        steps: training_steps(1, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
@@ -102,7 +102,6 @@ fn main() {
     let stage1_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-all.vf", 1024, 4, fen_skipping_filter(0.01));
     let stage2_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-best.vf", 1024, 4, fen_skipping_filter(0.01));
 
-    trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-34-s1-310");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // space needed on cluster: 1.2TB BF
