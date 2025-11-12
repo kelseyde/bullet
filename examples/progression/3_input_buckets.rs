@@ -1,21 +1,18 @@
-use viriformat::dataformat::Filter;
+use bullet_lib::value::loader::ViriBinpackLoader;
 use bullet_lib::{
-    game::{
-        inputs::{ChessBucketsMirrored, get_num_buckets},
-    },
+    game::inputs::{get_num_buckets, ChessBucketsMirrored},
     nn::{
-        InitSettings, Shape,
-        optimiser::{AdamW, AdamWParams},
+        optimiser::{AdamW, AdamWParams}, InitSettings,
+        Shape,
     },
     trainer::{
         save::SavedFormat,
-        schedule::{TrainingSchedule, TrainingSteps, lr, wdl},
+        schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
     },
-    value::{ValueTrainerBuilder, loader::DirectSequentialDataLoader},
+    value::ValueTrainerBuilder,
 };
-use bullet_lib::value::loader::viribinpack::ViriFilter;
-use bullet_lib::value::loader::ViriBinpackLoader;
+use viriformat::dataformat::Filter;
 
 fn main() {
     // hyperparams to fiddle with
@@ -102,8 +99,8 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_data_loader = ViriBinpackLoader::new(&["/workspace/data/hobbes-all.vf"], 1024, 4, fen_skipping_filter(0.01));
-    let stage2_data_loader = ViriBinpackLoader::new(&["/workspace/data/hobbes-best.vf"], 1024, 4, fen_skipping_filter(0.01));
+    let stage1_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-all.vf", 1024, 4, fen_skipping_filter(0.01));
+    let stage2_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-best.vf", 1024, 4, fen_skipping_filter(0.01));
 
     trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-34-s1-310");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
