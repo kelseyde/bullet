@@ -80,7 +80,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-34-s1".to_string(),
+        net_id: "hobbes-35-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
@@ -89,7 +89,7 @@ fn main() {
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-34-s2".to_string(),
+        net_id: "hobbes-35-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
         wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
@@ -99,8 +99,8 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-all.vf", 32768, 4, fen_skipping_filter(0.01));
-    let stage2_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-best.vf", 32768, 4, fen_skipping_filter(0.01));
+    let stage1_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-all.vf", 32768, 4, fen_skipping_filter(0.75));
+    let stage2_data_loader = ViriBinpackLoader::new("/workspace/data/hobbes-best.vf", 32768, 4, fen_skipping_filter(0.75));
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
