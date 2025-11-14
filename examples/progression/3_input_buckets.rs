@@ -107,8 +107,8 @@ fn main() {
     let hobbes_all_path = "/workspace/data/hobbes-all.vf";
     let hobbes_best_path = "/workspace/data/hobbes-best.vf";
 
-    let stage1_data_loader = ViriBinpackLoader::new(hobbes_all_path, 32768, 12, ViriFilter::Custom(filter));
-    let stage2_data_loader = ViriBinpackLoader::new(hobbes_best_path, 32768, 12, ViriFilter::Custom(filter));
+    let stage1_data_loader = ViriBinpackLoader::new(hobbes_all_path, 32768, 24, ViriFilter::Custom(filter));
+    let stage2_data_loader = ViriBinpackLoader::new(hobbes_best_path, 32768, 24, ViriFilter::Custom(filter));
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
