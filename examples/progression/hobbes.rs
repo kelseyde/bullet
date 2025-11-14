@@ -129,7 +129,7 @@ fn filter(board: &Board, mv: Move, eval: i16, wdl: f32) -> bool {
         filter_castling: false,
         max_eval_incorrectness: u32::MAX,
         random_fen_skipping: true,
-        random_fen_skip_probability: 0.75,
+        random_fen_skip_probability: 0.5,
         ..Default::default()
     };
     let mut rng = rng();
