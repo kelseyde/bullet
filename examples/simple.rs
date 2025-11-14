@@ -5,21 +5,22 @@ and the training schedule is pretty sensible.
 There's potentially a lot of elo available by adjusting the wdl
 and lr schedulers, depending on your dataset.
 */
+
 use bullet_lib::{
     game::{
         formats::sfbinpack::{
+            chess::{piecetype::PieceType, r#move::MoveType},
             TrainingDataEntry,
-            chess::{r#move::MoveType, piecetype::PieceType},
         },
         inputs,
     },
     nn::optimiser,
     trainer::{
         save::SavedFormat,
-        schedule::{TrainingSchedule, TrainingSteps, lr, wdl},
+        schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
     },
-    value::{ValueTrainerBuilder, loader},
+    value::{loader, ValueTrainerBuilder},
 };
 
 const HIDDEN_SIZE: usize = 128;

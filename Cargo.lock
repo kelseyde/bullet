@@ -97,9 +97,7 @@ dependencies = [
  "bullet_cuda_backend",
  "bullet_hip_backend",
  "bulletformat",
- "bytemuck",
  "montyformat",
- "rand",
  "sfbinpack",
  "viriformat",
 ]
@@ -109,12 +107,6 @@ name = "bulletformat"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d171953264e8dc3aa62757255e602e507fdd358a94e3cdacb9e481ff3a1c6b0"
-
-[[package]]
-name = "bytemuck"
-version = "1.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fbdf580320f38b612e485521afda1ee26d10cc9884efaaa750d383e13e3c5f4"
 
 [[package]]
 name = "cc"

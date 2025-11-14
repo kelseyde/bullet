@@ -68,4 +68,4 @@ path = "../../examples/extra/relabel.rs"
 
 [[example]]
 name = "hobbes"
-path = "../../examples/hobbes.rs"
+path = "../../examples/progression/hobbes.rs"

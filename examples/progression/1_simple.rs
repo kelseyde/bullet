@@ -3,11 +3,13 @@ use bullet_lib::{
     nn::optimiser::AdamW,
     trainer::{
         save::SavedFormat,
-        schedule::{TrainingSchedule, TrainingSteps, lr, wdl},
+        schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
     },
-    value::{ValueTrainerBuilder, loader::DirectSequentialDataLoader},
+    value::{loader::DirectSequentialDataLoader, ValueTrainerBuilder},
 };
+
+mod hobbes;
 
 fn main() {
     // hyperparams to fiddle with
