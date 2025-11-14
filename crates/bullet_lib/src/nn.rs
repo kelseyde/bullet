@@ -5,6 +5,11 @@ pub use acyclib::{
         builder::{Affine, GraphBuilder as NetworkBuilder, GraphBuilderNode as NetworkBuilderNode, InitSettings},
     },
 };
+
+#[cfg(any(feature = "multigpu", feature = "cpu"))]
+pub type Graph = acyclib::graph::multi::MultiDeviceGraph<ExecutionContext>;
+
+#[cfg(not(any(feature = "multigpu", feature = "cpu")))]
 pub type Graph = acyclib::graph::Graph<ExecutionContext>;
 
 #[cfg(all(feature = "cpu", not(feature = "cuda")))]

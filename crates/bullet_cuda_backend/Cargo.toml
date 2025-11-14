@@ -10,7 +10,9 @@ edition = { workspace = true }
 
 [features]
 error = []
+nccl = ["cudarc/nccl"]
 
 [dependencies]
 acyclib = { workspace = true }
 cudarc = { version = "0.17.3", features = ["cuda-version-from-build-system"] }
+parking_lot = { workspace = true }

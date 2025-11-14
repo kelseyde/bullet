@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
 use acyclib::{
-    device::tensor::Shape,
+    device::{Device, tensor::Shape},
+    graph::save::SavedFormat,
     trainer::{Trainer, optimiser::Optimiser},
 };
 
 use crate::{
     game::{inputs::SparseInputType, outputs::OutputBuckets},
     nn::{BackendMarker, ExecutionContext, NetworkBuilder, NetworkBuilderNode, optimiser::OptimiserType},
-    trainer::save::SavedFormat,
     value::ValueTrainerState,
 };
 
@@ -30,6 +30,7 @@ pub struct ValueTrainerBuilder<O, I: SparseInputType, P, Out> {
     wdl_output: bool,
     use_win_rate_model: bool,
     print_ir: bool,
+    device_ids: Vec<<ExecutionContext as Device>::IdType>,
 }
 
 impl<O, I> Default for ValueTrainerBuilder<O, I, SinglePerspective, NoOutputBuckets>
@@ -50,6 +51,7 @@ where
             use_win_rate_model: false,
             factorised: Vec::new(),
             print_ir: false,
+            device_ids: Vec::new(),
         }
     }
 }
@@ -112,6 +114,28 @@ where
         self
     }
 
+    pub fn use_threads(self, _count: usize) -> Self {
+        #[cfg(feature = "cpu")]
+        {
+            self.use_devices(vec![(); _count])
+        }
+
+        #[cfg(not(feature = "cpu"))]
+        {
+            println!("Setting `ValueTrainerBuilder::use_threads` does nothing on non-CPU backends!");
+            self
+        }
+    }
+
+    pub fn use_devices(mut self, ids: impl Into<Vec<<ExecutionContext as Device>::IdType>>) -> Self {
+        if cfg!(not(any(feature = "multigpu", feature = "cpu"))) {
+            println!("Specifying device list does nothing without `multigpu` feature enabled!");
+        }
+
+        self.device_ids = ids.into();
+        self
+    }
+
     pub fn use_win_rate_model(mut self) -> Self {
         self.use_win_rate_model = true;
         self
@@ -150,6 +174,13 @@ where
             builder.dump_ir_on_build();
         }
 
+        #[cfg(any(feature = "multigpu", feature = "cpu"))]
+        let graph = {
+            let devices = self.device_ids.into_iter().map(ExecutionContext::new);
+            builder.build_multi(devices.collect::<Result<Vec<_>, _>>().unwrap())
+        };
+
+        #[cfg(not(any(feature = "multigpu", feature = "cpu")))]
         let graph = builder.build(ExecutionContext::default());
 
         ValueTrainer(Trainer {
@@ -247,6 +278,7 @@ where
             wdl_output: self.wdl_output,
             use_win_rate_model: self.use_win_rate_model,
             print_ir: self.print_ir,
+            device_ids: self.device_ids,
         }
     }
 }
@@ -275,6 +307,7 @@ where
             wdl_output: self.wdl_output,
             use_win_rate_model: self.use_win_rate_model,
             print_ir: self.print_ir,
+            device_ids: self.device_ids,
         }
     }
 }

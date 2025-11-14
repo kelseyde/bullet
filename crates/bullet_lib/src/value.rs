@@ -8,35 +8,36 @@ use std::cell::RefCell;
 pub use builder::{NoOutputBuckets, ValueTrainerBuilder};
 
 use acyclib::{
-    graph::{GraphNodeId, GraphNodeIdTy, Node},
-    trainer::{
-        self, Trainer,
-        dataloader::{PreparedBatchDevice, PreparedBatchHost},
-        logger,
-        optimiser::OptimiserState,
-    },
+    graph::Node,
+    trainer::{self, Trainer, logger, optimiser::OptimiserState},
+};
+
+use acyclib::{
+    graph::{GraphNodeId, GraphNodeIdTy, like::GraphLike, save::SavedFormat},
+    trainer::dataloader::{PreparedBatchDevice, PreparedBatchHost},
 };
 
 use crate::{
     game::{inputs::SparseInputType, outputs::OutputBuckets},
-    nn::ExecutionContext,
+    nn::{ExecutionContext, Graph},
     trainer::{
-        save::SavedFormat,
         schedule::{TrainingSchedule, lr::LrScheduler, wdl::WdlScheduler},
         settings::LocalSettings,
     },
     value::{
         dataloader::ValueDataLoader,
-        loader::{DefaultDataLoader, LoadableDataType, PreparedData},
+        loader::{DefaultDataLoader, LoadableDataType},
     },
 };
+
+use crate::value::loader::PreparedData;
 
 /// Value network trainer, generally for training NNUE networks.
 pub struct ValueTrainer<
     Opt: OptimiserState<ExecutionContext>,
     Inp: SparseInputType,
     Out: OutputBuckets<Inp::RequiredDataType>,
->(Trainer<ExecutionContext, Opt, ValueTrainerState<Inp, Out>>);
+>(Trainer<ExecutionContext, Graph, Opt, ValueTrainerState<Inp, Out>>);
 
 impl<Opt, Inp, Out> std::ops::Deref for ValueTrainer<Opt, Inp, Out>
 where
@@ -44,7 +45,7 @@ where
     Inp: SparseInputType,
     Out: OutputBuckets<Inp::RequiredDataType>,
 {
-    type Target = Trainer<ExecutionContext, Opt, ValueTrainerState<Inp, Out>>;
+    type Target = Trainer<ExecutionContext, Graph, Opt, ValueTrainerState<Inp, Out>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -65,6 +66,7 @@ where
 type B<I> = fn(&<I as SparseInputType>::RequiredDataType, f32) -> f32;
 type Wgt<I> = fn(&<I as SparseInputType>::RequiredDataType) -> f32;
 
+#[derive(Clone)]
 pub struct ValueTrainerState<Inp: SparseInputType, Out> {
     input_getter: Inp,
     output_getter: Out,
@@ -74,6 +76,34 @@ pub struct ValueTrainerState<Inp: SparseInputType, Out> {
     saved_format: Vec<SavedFormat>,
     use_win_rate_model: bool,
     wdl: bool,
+}
+
+impl<Inp: SparseInputType, Out> ValueTrainerState<Inp, Out>
+where
+    Inp: SparseInputType,
+    Inp::RequiredDataType: LoadableDataType,
+    Out: OutputBuckets<Inp::RequiredDataType>,
+{
+    pub fn prepare(
+        &self,
+        batch: &[Inp::RequiredDataType],
+        threads: usize,
+        blend: f32,
+        scale: f32,
+    ) -> PreparedBatchHost {
+        PreparedBatchHost::from(PreparedData::new(
+            self.input_getter.clone(),
+            self.output_getter,
+            self.blend_getter,
+            self.weight_getter,
+            self.use_win_rate_model,
+            self.wdl,
+            batch,
+            threads,
+            blend,
+            scale,
+        ))
+    }
 }
 
 impl<Opt, Inp, Out> ValueTrainer<Opt, Inp, Out>
@@ -120,7 +150,8 @@ where
         let steps = schedule.steps;
 
         let error_record = RefCell::new(Vec::new());
-        let mut prev32_loss = 0.0;
+        let mut loss_sum = 0.0;
+        let mut ticks_since_last = 0.0;
 
         self.train_custom(
             trainer::schedule::TrainingSchedule {
@@ -130,16 +161,18 @@ where
             },
             ValueDataLoader { steps, threads: settings.threads, dataloader, wdl: schedule.wdl_scheduler.clone() },
             |_, superbatch, curr_batch, error| {
-                prev32_loss += error;
+                loss_sum += error;
+                ticks_since_last += 1.0;
 
                 if curr_batch % 32 == 0
                     || (steps.batches_per_superbatch < 32 && curr_batch == steps.batches_per_superbatch)
                 {
-                    prev32_loss /= 32.0_f32.min(steps.batches_per_superbatch as f32);
+                    let normalised_loss = loss_sum / f32::min(ticks_since_last, steps.batches_per_superbatch as f32);
 
-                    error_record.borrow_mut().push((superbatch, curr_batch, prev32_loss));
+                    error_record.borrow_mut().push((superbatch, curr_batch, normalised_loss));
 
-                    prev32_loss = 0.0;
+                    loss_sum = 0.0;
+                    ticks_since_last = 0.0;
                 }
             },
             |trainer, superbatch| {
@@ -157,40 +190,40 @@ where
         .unwrap();
     }
 
+    pub fn get_output_values(&self) -> Vec<f32> {
+        let id = GraphNodeId::new(self.state.output_node.idx(), GraphNodeIdTy::Values);
+
+        #[cfg(not(any(feature = "multigpu", feature = "cpu")))]
+        {
+            self.optimiser.graph.get(id).unwrap().get_dense_vals().unwrap()
+        }
+
+        #[cfg(any(feature = "multigpu", feature = "cpu"))]
+        self.optimiser.graph.get_all(id).unwrap().iter().flat_map(|x| x.get_dense_vals().unwrap()).collect()
+    }
+
     pub fn eval_raw_output(&mut self, fen: &str) -> Vec<f32>
     where
         Inp::RequiredDataType: std::str::FromStr<Err: std::fmt::Debug> + LoadableDataType,
     {
         let pos = format!("{fen} | 0 | 0.0").parse::<Inp::RequiredDataType>().unwrap();
 
-        let prepared = PreparedData::new(
-            self.state.input_getter.clone(),
-            self.state.output_getter,
-            self.state.blend_getter,
-            self.state.weight_getter,
-            self.state.use_win_rate_model,
-            self.state.wdl,
-            &[pos],
-            1,
-            1.0,
-            1.0,
-        );
+        let host_data = self.state.prepare(&[pos], 1, 1.0, 1.0);
 
-        let host_data = PreparedBatchHost::from(prepared);
-        let mut device_data = PreparedBatchDevice::new(self.optimiser.graph.device(), &host_data).unwrap();
+        #[cfg(not(any(feature = "multigpu", feature = "cpu")))]
+        let graph = &mut self.optimiser.graph;
 
-        device_data.load_into_graph(&mut self.optimiser.graph).unwrap();
+        #[cfg(any(feature = "multigpu", feature = "cpu"))]
+        let graph = self.optimiser.graph.primary_mut();
 
-        self.optimiser.graph.synchronise().unwrap();
-        self.optimiser.graph.forward().unwrap();
+        let mut device_data = PreparedBatchDevice::new(graph.devices(), &host_data).unwrap();
 
-        let id = GraphNodeId::new(self.state.output_node.idx(), GraphNodeIdTy::Values);
-        let eval = self.optimiser.graph.get(id).unwrap();
+        device_data.load_into_graph(graph).unwrap();
 
-        let dense_vals = eval.dense();
-        let mut vals = vec![0.0; dense_vals.size()];
-        dense_vals.write_to_slice(&mut vals).unwrap();
-        vals
+        graph.synchronise().unwrap();
+        graph.forward().unwrap();
+
+        self.get_output_values()
     }
 
     pub fn eval(&mut self, fen: &str) -> f32

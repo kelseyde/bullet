@@ -27,11 +27,17 @@ Specific API documentation is covered by Rust's docstrings. You can create local
 - **acyclib**
     - Core ML library for directed acyclic tensor graphs
     - Graphs are defined once (ahead of use), then optimised and compiled for a given backend device
-    - A token single-threaded CPU backend is included for verifying correctness of the crate and other backend implementations
+    - Contains the CPU backend
     - Contains training abstractions to take care of asynchronous data loading and transfer from CPU to GPU
     - See the [MNIST](examples/extra/mnist.rs) example for using it at a lower level
 - **bullet_cuda_backend**
+    - The first-class backend
+    - Things that other backends don't have:
+        - Tooling to make writing custom operations easier
+        - Additional optimisation passes & better optimised kernels
+        - Multi-GPU support! See the [caveat](https://github.com/jw1912/bullet/commit/b06dd9bbbcfde9716612f0d305d1d94279a26a04) for whether bandwidth limitations will be a performance bottleneck
 - **bullet_hip_backend**
+    - For users with AMD GPUs
 - **bullet_lib**
     - Provides a high-level wrapper around the above crates specifically for training networks to do with chess (and other games e.g. Ataxx) easily
     - Value network training for games with `ValueTrainer`

@@ -15,6 +15,7 @@ cpu = []
 cuda = ["bullet_cuda_backend"]
 hip = ["bullet_hip_backend", "bullet_hip_backend/hip", "bullet_cuda_backend?/error"]
 hip-cuda = ["bullet_hip_backend"]
+multigpu = ["bullet_cuda_backend/nccl"]
 
 [dependencies]
 acyclib = { workspace = true }
@@ -22,9 +23,8 @@ bullet_cuda_backend = { workspace = true, optional = true }
 bullet_hip_backend = { workspace = true, optional = true }
 bulletformat = { workspace = true }
 montyformat = { workspace = true }
-sfbinpack = "0.4.1"
-viriformat = "2.0.0"
-rand = "0.9.0"
+sfbinpack = "0.6.0"
+viriformat = { workspace = true }
 
 [[example]]
 name = "simple"
@@ -61,6 +61,10 @@ path = "../../examples/progression/3_input_buckets.rs"
 [[example]]
 name = "4_multi_layer"
 path = "../../examples/progression/4_multi_layer.rs"
+
+[[example]]
+name = "relabel"
+path = "../../examples/extra/relabel.rs"
 
 [[example]]
 name = "hobbes"
