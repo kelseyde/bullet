@@ -42,11 +42,9 @@ fn main() {
                 .add_transform(|graph, _, mut weights| {
                     let factoriser = graph.get_weights("l0f").get_dense_vals().unwrap();
                     let expanded = factoriser.repeat(NUM_INPUT_BUCKETS);
-
                     for (i, &j) in weights.iter_mut().zip(expanded.iter()) {
                         *i += j;
                     }
-
                     weights
                 })
                 .quantise::<i16>(255),
@@ -132,4 +130,33 @@ fn filter(skipping_probability: f64) -> Filter {
         random_fen_skip_probability: skipping_probability,
         ..Default::default()
     }
+}
+
+fn piece_count_acceptance(board: &Board) -> f64 {
+    #[rustfmt::skip]
+    const DESIRED_DISTRIBUTION: [f64; 33] = [
+        0.018411966423, 0.020641545085, 0.022727271053,
+        0.024669162740, 0.026467201733, 0.028121406444,
+        0.029631758462, 0.030998276198, 0.032220941240,
+        0.033299772000, 0.034234750067, 0.035025893853,
+        0.035673184944, 0.036176641754, 0.036536245870,
+        0.036752015705, 0.036823932846, 0.036752015705,
+        0.036536245870, 0.036176641754, 0.035673184944,
+        0.035025893853, 0.034234750067, 0.033299772000,
+        0.032220941240, 0.030998276198, 0.029631758462,
+        0.028121406444, 0.026467201733, 0.024669162740,
+        0.022727271053, 0.020641545085, 0.018411966423,
+    ];
+
+    static PIECE_COUNT_STATS: [AtomicU64; 33] = zeroed();
+    static PIECE_COUNT_TOTAL: AtomicU64 = AtomicU64::new(0);
+
+    let pc = board.pieces.occupied().count() as usize;
+    let count = PIECE_COUNT_STATS[pc].fetch_add(1, Ordering::Relaxed) + 1;
+    let total = PIECE_COUNT_TOTAL.fetch_add(1, Ordering::Relaxed) + 1;
+    let frequency = count as f64 / total as f64;
+
+    // Calculate the acceptance probability for this piece count
+    let acceptance = 0.5 * DESIRED_DISTRIBUTION[pc] / frequency;
+    acceptance.clamp(0., 1.)
 }
