@@ -16,7 +16,7 @@ use viriformat::dataformat::Filter;
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 1536;
+    const HL_SIZE: usize = 1280;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -125,6 +125,17 @@ fn filter() -> Filter {
         max_eval_incorrectness: u32::MAX,
         random_fen_skipping: true,
         random_fen_skip_probability: 0.5,
-        ..Default::default()
+        wdl_filtered: true,
+        wdl_model_params_a: [6.871_558_62, -39.652_263_91, 90.684_603_52, 170.669_963_64],
+        wdl_model_params_b: [
+            -7.198_907_10,
+            56.139_471_85,
+            -139.910_911_83,
+            182.810_074_27,
+        ],
+        material_min: 17,
+        material_max: 78,
+        mom_target: 58,
+        wdl_heuristic_scale: 1.5,
     }
 }
