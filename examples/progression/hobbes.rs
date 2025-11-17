@@ -86,9 +86,9 @@ fn main() {
     let stage_2_schedule = TrainingSchedule {
         net_id: "hobbes-37-s2".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
-        lr_scheduler: lr::ConstantLR { value: 0.00000081 },
+        steps: training_steps(1, 400),
+        wdl_scheduler: wdl::LinearWDL { start: 0.6 , end: 0.8 },
+        lr_scheduler: lr::LinearDecayLR { initial_lr: 0.00000081, final_lr: 0.00000040, final_superbatch: 400 },
         save_rate: 10,
     };
 
@@ -125,17 +125,6 @@ fn filter() -> Filter {
         max_eval_incorrectness: u32::MAX,
         random_fen_skipping: true,
         random_fen_skip_probability: 0.5,
-        wdl_filtered: true,
-        wdl_model_params_a: [6.871_558_62, -39.652_263_91, 90.684_603_52, 170.669_963_64],
-        wdl_model_params_b: [
-            -7.198_907_10,
-            56.139_471_85,
-            -139.910_911_83,
-            182.810_074_27,
-        ],
-        material_min: 17,
-        material_max: 78,
-        mom_target: 58,
-        wdl_heuristic_scale: 1.5,
+        ..Default::default()
     }
 }
