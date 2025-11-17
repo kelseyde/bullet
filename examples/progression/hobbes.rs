@@ -13,11 +13,11 @@ use bullet_lib::{
     value::ValueTrainerBuilder,
 };
 use viriformat::dataformat::Filter;
+use bullet_lib::game::outputs::MaterialCount;
 
 fn main() {
     // hyperparams to fiddle with
     const HL_SIZE: usize = 1280;
-    const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
          0,  1,  2,  3,
@@ -31,11 +31,13 @@ fn main() {
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
+    const NUM_OUTPUT_BUCKETS: usize = 8;
 
     let mut trainer = ValueTrainerBuilder::default()
         .dual_perspective()
         .optimiser(AdamW)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
+        .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
         .save_format(&[
             // merge in the factoriser weights
             SavedFormat::id("l0w")
@@ -50,7 +52,7 @@ fn main() {
             SavedFormat::id("l1b").round().quantise::<i16>(255 * 64),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build(|builder, stm_inputs, ntm_inputs| {
+        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer factoriser
             let l0f = builder.new_weights("l0f", Shape::new(HL_SIZE, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(NUM_INPUT_BUCKETS);
@@ -66,7 +68,7 @@ fn main() {
             let stm_hidden = l0.forward(stm_inputs).screlu();
             let ntm_hidden = l0.forward(ntm_inputs).screlu();
             let hidden_layer = stm_hidden.concat(ntm_hidden);
-            l1.forward(hidden_layer)
+            l1.forward(hidden_layer).select(output_buckets)
         });
 
     // need to account for factoriser weight magnitudes
@@ -75,7 +77,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-37-s1".to_string(),
+        net_id: "hobbes-ob-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
@@ -84,11 +86,11 @@ fn main() {
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-37-s2".to_string(),
+        net_id: "hobbes-ob-s2".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 400),
-        wdl_scheduler: wdl::LinearWDL { start: 0.6 , end: 0.8 },
-        lr_scheduler: lr::LinearDecayLR { initial_lr: 0.00000081, final_lr: 0.00000040, final_superbatch: 400 },
+        steps: training_steps(1, 200),
+        wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
+        lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
 
