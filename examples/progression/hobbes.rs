@@ -74,69 +74,34 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
-    const STAGE1_SUPERBATCHES: usize = 100;
-    const STAGE2_SUPERBATCHES: usize = 800;
-    const STAGE3_SUPERBATCHES: usize = 100;
-    const LR_WARMUP_BATCHES: usize = 200;
-    const FIRST_WDL_FRACTION: f32 = 0.2;
-    const SECOND_WDL_FRACTION: (f32, f32) = (0.4, 0.6);
-    const THIRD_WDL_FRACTION: f32 = 0.8;
-    const FIRST_INITIAL_LR: f32 = 0.001;
-    const FIRST_FINAL_LR: f32 = 0.000027;
-    const SECOND_INITIAL_LR: f32 = 0.001;
-    const SECOND_FINAL_LR: f32 = 0.000027;
-    const THIRD_INITIAL_LR: f32 = 0.000025;
-    const THIRD_FINAL_LR: f32 = 0.0000025;
-
-    let wdl_scheduler = wdl::Sequence {
-        first: wdl::Sequence {
-            first: wdl::ConstantWDL { value: FIRST_WDL_FRACTION },
-            second: wdl::LinearWDL { start: SECOND_WDL_FRACTION.0, end: SECOND_WDL_FRACTION.1 },
-            first_scheduler_final_superbatch: STAGE1_SUPERBATCHES,
-        },
-        second: wdl::ConstantWDL { value: THIRD_WDL_FRACTION, },
-        first_scheduler_final_superbatch: STAGE1_SUPERBATCHES + STAGE2_SUPERBATCHES,
-    };
-
-    let lr_scheduler = lr::Sequence {
-        first: lr::Sequence {
-            first: lr::Warmup {
-                inner: lr::LinearDecayLR {
-                    initial_lr: FIRST_INITIAL_LR,
-                    final_lr: FIRST_FINAL_LR,
-                    final_superbatch: STAGE1_SUPERBATCHES,
-                },
-                warmup_batches: LR_WARMUP_BATCHES,
-            },
-            second: lr::LinearDecayLR {
-                initial_lr: SECOND_INITIAL_LR,
-                final_lr: SECOND_FINAL_LR,
-                final_superbatch: STAGE2_SUPERBATCHES,
-            },
-            first_scheduler_final_superbatch: STAGE1_SUPERBATCHES,
-        },
-        second: lr::LinearDecayLR {
-            initial_lr: THIRD_INITIAL_LR,
-            final_lr: THIRD_FINAL_LR,
-            final_superbatch: STAGE3_SUPERBATCHES,
-        },
-        first_scheduler_final_superbatch: STAGE1_SUPERBATCHES + STAGE2_SUPERBATCHES,
-    };
-
-    let schedule = TrainingSchedule {
+    let stage_1_schedule = TrainingSchedule {
         net_id: "hobbes-37-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
-        wdl_scheduler,
-        lr_scheduler,
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
+        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
+        save_rate: 10,
+    };
+
+    let stage_2_schedule = TrainingSchedule {
+        net_id: "hobbes-37-s2".to_string(),
+        eval_scale: 400.0,
+        steps: training_steps(1, 200),
+        wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
+        lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
-    let dataset_path = "/workspace/data/hobbes-all.vf";
-    let data_loader = ViriBinpackLoader::new(dataset_path, 32768, 24, filter());
 
-    trainer.run(&schedule, &settings, &data_loader);
+    let stage1_dataset_path = "/workspace/data/hobbes-all.vf";
+    let stage2_dataset_path = "/workspace/data/hobbes-best.vf";
+
+    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 24, filter());
+    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 24, filter());
+
+    trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
+    trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // space needed on cluster: 1.2TB BF
 }
 
@@ -157,7 +122,7 @@ fn filter() -> Filter {
         filter_tactical: true,
         filter_check: true,
         filter_castling: false,
-        max_eval_incorrectness: u32::MAX,
+        max_eval_incorrectness: 1024,
         random_fen_skipping: true,
         random_fen_skip_probability: 0.5,
         ..Default::default()
