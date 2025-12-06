@@ -102,7 +102,8 @@ fn main() {
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
-    // space needed on cluster: 1.2TB BF
+    // hobbes-best: 69GB
+    // hobbes-all: 85GB
 }
 
 fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSteps {
