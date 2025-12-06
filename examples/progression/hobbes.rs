@@ -77,7 +77,7 @@ fn main() {
     let stage_1_schedule = TrainingSchedule {
         net_id: "hobbes-38-s1".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 800),
+        steps: training_steps(500, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
@@ -100,6 +100,7 @@ fn main() {
     let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 24, filter());
     let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 24, filter());
 
+    trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-38-s1-500");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // hobbes-best: 69GB
