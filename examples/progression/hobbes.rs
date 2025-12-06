@@ -122,7 +122,7 @@ fn filter() -> Filter {
         filter_tactical: true,
         filter_check: true,
         filter_castling: false,
-        max_eval_incorrectness: 1024,
+        max_eval_incorrectness: u32::MAX,
         random_fen_skipping: true,
         random_fen_skip_probability: 0.5,
         ..Default::default()
