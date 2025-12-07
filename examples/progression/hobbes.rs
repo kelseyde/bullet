@@ -100,7 +100,6 @@ fn main() {
     let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 24, filter());
     let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 24, filter());
 
-    trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-38-s1-580");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // hobbes-best: 69GB
