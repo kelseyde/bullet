@@ -87,7 +87,7 @@ fn main() {
         net_id: "hobbes-38-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
-        wdl_scheduler: wdl::LinearWDL { start: 0.6, end: 0.8 },
+        wdl_scheduler: wdl::LinearWDL { start: 0.6, end: 1.0 },
         lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
