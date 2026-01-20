@@ -67,14 +67,18 @@ impl DataLoader<ChessBoard> for ViriBinpackLoader {
         shuffle_buffer.reserve_exact(self.buffer_size);
 
         let file_paths = self.file_paths.clone();
+        println!("Using ViriBinpackLoader with {} threads and buffer size of {} positions", self.threads, self.buffer_size);
         let buffer_size = self.buffer_size;
 
         let (sender, receiver) = mpsc::sync_channel::<Game>(256);
         let (msg_sender, msg_receiver) = mpsc::sync_channel::<bool>(1);
+        println!("Starting data loading threads...");
 
         std::thread::spawn(move || {
             'dataloading: loop {
+                println!("Starting data loading thread...");
                 for file_path in &file_paths {
+                    println!("handling file: {}", file_path);
                     let mut reader = BufReader::new(File::open(file_path.as_str()).unwrap());
 
                     while let Ok(game) = Game::deserialise_from(&mut reader, Vec::new()) {
