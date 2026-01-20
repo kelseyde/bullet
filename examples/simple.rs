@@ -5,7 +5,7 @@ and the training schedule is pretty sensible.
 There's potentially a lot of elo available by adjusting the wdl
 and lr schedulers, depending on your dataset.
 */
-
+use viriformat::dataformat::Filter;
 use bullet_lib::{
     game::{
         formats::sfbinpack::{
@@ -22,6 +22,7 @@ use bullet_lib::{
     },
     value::{loader, ValueTrainerBuilder},
 };
+use bullet_lib::value::loader::ViriBinpackLoader;
 
 const HIDDEN_SIZE: usize = 128;
 const SCALE: i32 = 400;
@@ -95,10 +96,27 @@ fn main() {
     };
 
     // loading directly from a `BulletFormat` file
-    let data_loader = loader::DirectSequentialDataLoader::new(&["data/baseline.data"]);
+    let data_loader =  ViriBinpackLoader::new("/workspace/hobbes-all.vf", 1024, 12, filter());
 
     trainer.run(&schedule, &settings, &data_loader);
 }
+
+
+fn filter() -> Filter {
+    Filter {
+        min_ply: 16,
+        min_pieces: 4,
+        max_eval: 31339,
+        filter_tactical: true,
+        filter_check: true,
+        filter_castling: false,
+        max_eval_incorrectness: u32::MAX,
+        random_fen_skipping: true,
+        random_fen_skip_probability: 0.5,
+        ..Default::default()
+    }
+}
+
 
 /*
 This is how you would load the network in rust.
