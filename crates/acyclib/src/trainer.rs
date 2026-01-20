@@ -59,25 +59,18 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
             return Err(TrainerError::MoreDevicesThanBatchSize(self.optimiser.graph.devices().len(), steps.batch_size));
         }
 
-        println!("1");
-
         let (sender, receiver) = mpsc::sync_channel::<PreparedBatchHost>(32);
 
-        println!("2");
-
         let dataloader = thread::spawn(move || {
-            println!("3");
             let mut batch_no = 0;
             let mut superbatch = steps.start_superbatch;
 
             dataloader.map_batches(steps.batch_size, |batch| {
-                println!("in loader");
                 sender.send(batch).unwrap();
 
                 batch_no += 1;
 
                 if batch_no % steps.batches_per_superbatch == 0 {
-                    println!("end of superbatch");
                     batch_no = 0;
                     superbatch += 1;
 
@@ -85,8 +78,6 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
                         return true;
                     }
                 }
-
-                println!("4");
 
                 false
             })
@@ -99,22 +90,15 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
         let mut running_loss = 0.0;
         let mut superbatch_positions = 0;
 
-        println!("5");
-
         let first_batch =
             receiver.recv().map_err(|_| TrainerError::DataLoadingError(DataLoadingError::NoBatchesReceived))?;
-
-        println!("6");
 
         let mut batch_on_device = PreparedBatchDevice::new(self.optimiser.graph.devices(), &first_batch)
             .map_err(|e| TrainerError::Unexpected(e.into()))?;
 
-        println!("7");
-
         let mut batch_queued = true;
 
         while batch_queued {
-            println!("8");
             if superbatch > steps.end_superbatch {
                 return Err(TrainerError::DataLoadingError(DataLoadingError::TooManyBatchesReceived));
             }
@@ -125,8 +109,6 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
             if superbatch == steps.start_superbatch && curr_batch == 0 {
                 superbatch_timer = Instant::now();
             }
-
-            println!("9");
 
             let lrate = lr(curr_batch, superbatch);
 
@@ -156,8 +138,6 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
                 optim.update(gradient_factor, learning_rate)
             }
 
-            println!("10");
-
             step(&mut self.optimiser, gf, lrate).map_err(TrainerError::GradientCalculationError)?;
 
             if let Ok(next_batch) = receiver.recv() {
@@ -180,8 +160,6 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
                     superbatch_positions,
                 );
             }
-
-            println!("11");
 
             curr_batch += 1;
 
