@@ -76,13 +76,12 @@ impl DataLoader<ChessBoard> for ViriBinpackLoader {
 
         std::thread::spawn(move || {
             'dataloading: loop {
-                println!("Starting data loading thread...");
                 for file_path in &file_paths {
-                    println!("handling file: {}", file_path);
                     let mut reader = BufReader::new(File::open(file_path.as_str()).unwrap());
 
                     while let Ok(game) = Game::deserialise_from(&mut reader, Vec::new()) {
                         if msg_receiver.try_recv().unwrap_or(false) || sender.send(game).is_err() {
+                            println!("Data loading thread received stop signal, exiting...");
                             break 'dataloading;
                         }
                     }
