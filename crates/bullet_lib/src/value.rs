@@ -131,7 +131,6 @@ where
                 logger::ansi("Warning: Validation data not currently implemented! Please bother me on discord.", "31")
             )
         }
-        println!("Initialising dataloader...");
 
         let dataloader = DefaultDataLoader::new(
             self.state.input_getter.clone(),
@@ -144,11 +143,8 @@ where
             dataloader.clone(),
         );
 
-        println!("Creating output directory... ");
-
         let _ = std::fs::create_dir(settings.output_directory);
 
-        println!("Creating lr scheduler... ");
         let lr_scheduler = schedule.lr_scheduler.clone();
 
         let steps = schedule.steps;
@@ -157,7 +153,6 @@ where
         let mut loss_sum = 0.0;
         let mut ticks_since_last = 0.0;
 
-        println!("Running steps...");
         self.train_custom(
             trainer::schedule::TrainingSchedule {
                 steps,
