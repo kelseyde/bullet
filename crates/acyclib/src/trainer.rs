@@ -71,11 +71,13 @@ impl<D: Device, G: GraphLike<D>, O: OptimiserState<D>, S> Trainer<D, G, O, S> {
             let mut superbatch = steps.start_superbatch;
 
             dataloader.map_batches(steps.batch_size, |batch| {
+                println!("in loader");
                 sender.send(batch).unwrap();
 
                 batch_no += 1;
 
                 if batch_no % steps.batches_per_superbatch == 0 {
+                    println!("end of superbatch");
                     batch_no = 0;
                     superbatch += 1;
 
