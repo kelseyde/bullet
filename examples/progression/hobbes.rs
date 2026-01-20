@@ -92,13 +92,13 @@ fn main() {
         save_rate: 10,
     };
 
-    let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
+    let settings = LocalSettings { threads: 8, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
     let stage1_dataset_path = "/workspace/hobbes-all.vf";
     let stage2_dataset_path = "/workspace/hobbes-best.vf";
 
-    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 12, filter());
-    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 12, filter());
+    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 8, filter());
+    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 8, filter());
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
