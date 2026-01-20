@@ -75,27 +75,27 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-40-s1".to_string(),
+        net_id: "hobbes-38-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.3, end: 0.9 } },
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-40-s2".to_string(),
+        net_id: "hobbes-38-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.9 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
         lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_dataset_path = "/workspace/data/hobbes-all.vf";
-    let stage2_dataset_path = "/workspace/data/hobbes-best.vf";
+    let stage1_dataset_path = "/workspace/hobbes-all.vf";
+    let stage2_dataset_path = "/workspace/hobbes-best.vf";
 
     let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 24, filter());
     let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 24, filter());
