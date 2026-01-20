@@ -81,7 +81,6 @@ impl DataLoader<ChessBoard> for ViriBinpackLoader {
 
                     while let Ok(game) = Game::deserialise_from(&mut reader, Vec::new()) {
                         if msg_receiver.try_recv().unwrap_or(false) || sender.send(game).is_err() {
-                            println!("Data loading thread received stop signal, exiting...");
                             break 'dataloading;
                         }
                     }
