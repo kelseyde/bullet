@@ -86,7 +86,7 @@ fn main() {
     let stage_2_schedule = TrainingSchedule {
         net_id: "hobbes-38-s2".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(131, 200),
+        steps: training_steps(1, 200),
         wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
         lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
