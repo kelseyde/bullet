@@ -16,7 +16,7 @@ use viriformat::dataformat::Filter;
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 1280;
+    const HL_SIZE: usize = 1536;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -97,11 +97,10 @@ fn main() {
     let stage1_dataset_path = "/workspace/hobbes-all.vf";
     let stage2_dataset_path = "/workspace/hobbes-best.vf";
 
-    // let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, filter());
+    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, filter());
     let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, filter());
 
-    // trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
-    trainer.load_from_checkpoint("/workspace/bullet/checkpoints/hobbes-38-s2-130");
+    trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // hobbes-best: 69GB
     // hobbes-all: 85GB
