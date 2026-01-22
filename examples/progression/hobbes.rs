@@ -16,7 +16,7 @@ use viriformat::dataformat::Filter;
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 1536;
+    const HL_SIZE: usize = 1280;
     const NUM_OUTPUT_BUCKETS: usize = 1;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
@@ -75,19 +75,19 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-38-s1".to_string(),
+        net_id: "hobbes-39-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.7 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-38-s2".to_string(),
+        net_id: "hobbes-39-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
+        wdl_scheduler: wdl::ConstantWDL { value: 1.0 },
         lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
