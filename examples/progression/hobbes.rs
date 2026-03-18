@@ -13,66 +13,108 @@ use bullet_lib::{
     value::ValueTrainerBuilder,
 };
 use viriformat::dataformat::Filter;
+use bullet_lib::game::outputs::MaterialCount;
+
+const SUPERBATCHES_STAGE1: usize = 600;
+const SUPERBATCHES_STAGE2: usize = 400;
+const L1: usize = 1280;
+const L2: usize = 16;
+const L3: usize = 32;
+const SCALE: i32 = 400;
+const Q0: i16 = 255;
+const Q1: i16 = 128;
+const Q: i16 = 64;
+const INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
+const OUTPUT_BUCKETS: usize = 8;
+
+const FT_SHIFT: usize = 8;
+const FT_SHIFT_SCALE: f32 = Q0 as f32 / ((1 << FT_SHIFT) as f32);
+const I8_RANGE: f32 = i8::MAX as f32 / (Q1 as f32);
+const L1_RANGE: f32 = I8_RANGE * FT_SHIFT_SCALE * FT_SHIFT_SCALE;
+
+#[rustfmt::skip]
+const BUCKET_LAYOUT: [usize; 32] = [
+     0,  1,  2,  3,
+     4,  5,  6,  7,
+     8,  8,  9,  9,
+    10, 10, 11, 11,
+    12, 12, 13, 13,
+    12, 12, 13, 13,
+    14, 14, 15, 15,
+    14, 14, 15, 15,
+];
 
 fn main() {
-    // hyperparams to fiddle with
-    const HL_SIZE: usize = 1280;
-    const NUM_OUTPUT_BUCKETS: usize = 1;
-    #[rustfmt::skip]
-    const BUCKET_LAYOUT: [usize; 32] = [
-         0,  1,  2,  3,
-         4,  5,  6,  7,
-         8,  9, 10, 11,
-         8,  9, 10, 11,
-        12, 12, 13, 13,
-        12, 12, 13, 13,
-        14, 14, 15, 15,
-        14, 14, 15, 15
-    ];
-
-    const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
-
     let mut trainer = ValueTrainerBuilder::default()
         .dual_perspective()
         .optimiser(AdamW)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
+        .output_buckets(MaterialCount::<OUTPUT_BUCKETS>)
         .save_format(&[
-            // merge in the factoriser weights
             SavedFormat::id("l0w")
-                .transform(|store, weights| {
-                    let factoriser = store.get("l0f").values.repeat(NUM_INPUT_BUCKETS);
-                    weights.into_iter().zip(factoriser).map(|(a, b)| a + b).collect()
+                .transform(|builder, mut weights| {
+                    let factoriser = builder.get("l0f").values;
+                    let expanded = factoriser.repeat(INPUT_BUCKETS);
+
+                    for (i, &j) in weights.iter_mut().zip(expanded.iter()) {
+                        *i += j;
+                    }
+
+                    weights
                 })
                 .round()
-                .quantise::<i16>(255),
-            SavedFormat::id("l0b").round().quantise::<i16>(255),
-            SavedFormat::id("l1w").round().quantise::<i16>(64).transpose(),
-            SavedFormat::id("l1b").round().quantise::<i16>(255 * 64),
+                .quantise::<i16>(Q0),
+            SavedFormat::id("l0b").round().quantise::<i16>(Q0),
+            SavedFormat::id("l1w")
+                .transform(|_, mut weights| {
+                    for i in weights.iter_mut() {
+                        *i /= FT_SHIFT_SCALE * FT_SHIFT_SCALE;
+                    }
+                    weights
+                })
+                .round()
+                .quantise::<i8>(Q1),
+            SavedFormat::id("l1b").round().quantise::<i32>(Q as i32),
+            SavedFormat::id("l2w").round().quantise::<i32>(Q as i32),
+            SavedFormat::id("l2b").round().quantise::<i32>((Q as i32).pow(3)),
+            SavedFormat::id("l3w").round().quantise::<i32>(Q as i32),
+            SavedFormat::id("l3b").round().quantise::<i32>((Q as i32).pow(4)),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build(|builder, stm_inputs, ntm_inputs| {
+        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer factoriser
-            let l0f = builder.new_weights("l0f", Shape::new(HL_SIZE, 768), InitSettings::Zeroed);
-            let expanded_factoriser = l0f.repeat(NUM_INPUT_BUCKETS);
+            let l0f = builder.new_weights("l0f", Shape::new(L1, 768), InitSettings::Zeroed);
+            let expanded_factoriser = l0f.repeat(INPUT_BUCKETS);
 
             // input layer weights
-            let mut l0 = builder.new_affine("l0", 768 * NUM_INPUT_BUCKETS, HL_SIZE);
+            let mut l0 = builder.new_affine("l0", 768 * INPUT_BUCKETS, L1);
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
-            let l1 = builder.new_affine("l1", 2 * HL_SIZE, NUM_OUTPUT_BUCKETS);
+            let l1 = builder.new_affine("l1", L1, OUTPUT_BUCKETS * L2);
+            let l2 = builder.new_affine("l2", L2, OUTPUT_BUCKETS * L3);
+            let l3 = builder.new_affine("l3", L3, OUTPUT_BUCKETS);
 
             // inference
-            let stm_hidden = l0.forward(stm_inputs).screlu();
-            let ntm_hidden = l0.forward(ntm_inputs).screlu();
-            let hidden_layer = stm_hidden.concat(ntm_hidden);
-            l1.forward(hidden_layer)
+            let stm_hidden = l0.forward(stm_inputs).crelu().pairwise_mul();
+            let ntm_hidden = l0.forward(ntm_inputs).crelu().pairwise_mul();
+            let hl1 = stm_hidden.concat(ntm_hidden);
+
+            let l1_out = l1.forward(hl1).select(output_buckets);
+            let hl2 = l1_out.screlu();
+
+            let l2_out = l2.forward(hl2).select(output_buckets);
+            let hl3 = l2_out.crelu();
+
+            l3.forward(hl3).select(output_buckets)
         });
 
-    // need to account for factoriser weight magnitudes
-    let stricter_clipping = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
-    trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
-    trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
+    let l0_clip = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
+    trainer.optimiser.set_params_for_weight("l0w", l0_clip);
+    trainer.optimiser.set_params_for_weight("l0f", l0_clip);
+
+    let l1_clip = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
+    trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
         net_id: "hobbes-39-s1".to_string(),
