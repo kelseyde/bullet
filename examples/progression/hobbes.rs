@@ -111,7 +111,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0w", l0_clip);
     trainer.optimiser.set_params_for_weight("l0f", l0_clip);
 
-    let l1_clip = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
+    let l1_clip = AdamWParams { max_weight: L1_RANGE, min_weight: -L1_RANGE, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
