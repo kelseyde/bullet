@@ -90,16 +90,16 @@ fn main() {
 
             // output layer weights
             let l1 = builder.new_affine("l1", L1, OUTPUT_BUCKETS * L2);
-            let l2 = builder.new_affine("l2", L2, OUTPUT_BUCKETS * L3);
+            let l2 = builder.new_affine("l2", L2 * 2, OUTPUT_BUCKETS * L3);
             let l3 = builder.new_affine("l3", L3, OUTPUT_BUCKETS);
 
             // inference
             let stm_hidden = l0.forward(stm_inputs).crelu().pairwise_mul();
             let ntm_hidden = l0.forward(ntm_inputs).crelu().pairwise_mul();
-            let hl1 = stm_hidden.concat(ntm_hidden);
+            let l0_out = stm_hidden.concat(ntm_hidden);
 
-            let l1_out = l1.forward(hl1).select(output_buckets);
-            let hl2 = l1_out.screlu();
+            let l1_out = l1.forward(l0_out).select(output_buckets);
+            let hl2 = l1_out.concat(l1_out.abs_pow(2.0)).crelu();
 
             let l2_out = l2.forward(hl2).select(output_buckets);
             let hl3 = l2_out.crelu();
@@ -115,7 +115,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-39-s1".to_string(),
+        net_id: "hobbes-40-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(581, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
@@ -124,7 +124,7 @@ fn main() {
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-39-s2".to_string(),
+        net_id: "hobbes-40-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
         wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
