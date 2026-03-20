@@ -15,7 +15,7 @@ use bullet_lib::{
 use viriformat::dataformat::Filter;
 use bullet_lib::game::outputs::MaterialCount;
 
-const L1: usize = 1280;
+const L1: usize = 1792;
 const L2: usize = 16;
 const L3: usize = 32;
 const SCALE: i32 = 400;
@@ -114,7 +114,7 @@ fn main() {
     let l1_clip = AdamWParams { max_weight: L1_RANGE, min_weight: -L1_RANGE, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
-    trainer.load_from_checkpoint("checkpoints/hobbes-40-s2-200");
+    trainer.load_from_checkpoint("checkpoints/hobbes-41-s2-200");
 
     let eval = 400.0 * trainer.eval("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 | 0 | 0.0");
     println!("Eval: {eval:.3}cp");
