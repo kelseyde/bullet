@@ -90,16 +90,16 @@ fn main() {
 
             // output layer weights
             let l1 = builder.new_affine("l1", L1, OUTPUT_BUCKETS * L2);
-            let l2 = builder.new_affine("l2", L2, OUTPUT_BUCKETS * L3);
+            let l2 = builder.new_affine("l2", L2 * 2, OUTPUT_BUCKETS * L3);
             let l3 = builder.new_affine("l3", L3, OUTPUT_BUCKETS);
 
             // inference
             let stm_hidden = l0.forward(stm_inputs).crelu().pairwise_mul();
             let ntm_hidden = l0.forward(ntm_inputs).crelu().pairwise_mul();
-            let hl1 = stm_hidden.concat(ntm_hidden);
+            let l0_out = stm_hidden.concat(ntm_hidden);
 
-            let l1_out = l1.forward(hl1).select(output_buckets);
-            let hl2 = l1_out.screlu();
+            let l1_out = l1.forward(l0_out).select(output_buckets);
+            let hl2 = l1_out.concat(l1_out.abs_pow(2.0)).crelu();
 
             let l2_out = l2.forward(hl2).select(output_buckets);
             let hl3 = l2_out.crelu();
@@ -114,7 +114,7 @@ fn main() {
     let l1_clip = AdamWParams { max_weight: L1_RANGE, min_weight: -L1_RANGE, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
-    trainer.load_from_checkpoint("checkpoints/hobbes-39-s2-200");
+    trainer.load_from_checkpoint("checkpoints/hobbes-40-s2-200");
 
     let eval = 400.0 * trainer.eval("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 | 0 | 0.0");
     println!("Eval: {eval:.3}cp");
