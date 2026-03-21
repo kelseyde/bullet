@@ -15,7 +15,7 @@ use bullet_lib::{
 use viriformat::dataformat::Filter;
 use bullet_lib::game::outputs::MaterialCount;
 
-const L1: usize = 1792;
+const L1: usize = 1280;
 const L2: usize = 16;
 const L3: usize = 32;
 const SCALE: i32 = 400;
@@ -79,14 +79,13 @@ fn main() {
             SavedFormat::id("l3b").round().quantise::<i32>((Q as i32).pow(4)),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build_custom(|builder, (stm_inputs, ntm_inputs, output_buckets), target| {
+        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer factoriser
             let l0f = builder.new_weights("l0f", Shape::new(L1, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(INPUT_BUCKETS);
 
             // input layer weights
             let mut l0 = builder.new_affine("l0", 768 * INPUT_BUCKETS, L1);
-            l0.init_with_effective_input_size(32);
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
@@ -99,22 +98,13 @@ fn main() {
             let ntm_hidden = l0.forward(ntm_inputs).crelu().pairwise_mul();
             let l0_out = stm_hidden.concat(ntm_hidden);
 
-            let ones_l1_vec = builder.new_constant(Shape::new(1, L1), &[1.0 / L1 as f32; L1]);
-            let l0_out_norm = ones_l1_vec.matmul(l0_out);
-
             let l1_out = l1.forward(l0_out).select(output_buckets);
             let hl2 = l1_out.concat(l1_out.abs_pow(2.0)).crelu();
 
             let l2_out = l2.forward(hl2).select(output_buckets);
             let hl3 = l2_out.crelu();
 
-            let l3_out = l3.forward(hl3).select(output_buckets);
-
-            let loss = l3_out.sigmoid().squared_error(target);
-
-            let loss = loss + 0.005 * l0_out_norm;
-
-            (l3_out, loss)
+            l3.forward(hl3).select(output_buckets)
         });
 
     let l0_clip = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
@@ -125,19 +115,19 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-42-s1".to_string(),
+        net_id: "hobbes-41-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(201, 800),
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.9 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-42-s2".to_string(),
+        net_id: "hobbes-41-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.9 },
         lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
@@ -155,6 +145,24 @@ fn main() {
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
     // hobbes-best: 69GB
     // hobbes-all: 85GB
+
+    for fen in [
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/P2P2PP/q2Q1R1K w kq - 0 2",
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1",
+        "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "rn1qkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "r1bqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "1nbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQka - 0 1",
+    ] {
+        let eval = trainer.eval(fen);
+        println!("FEN: {fen}");
+        println!("EVAL: {}", 400.0 * eval);
+    }
 }
 
 fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSteps {
