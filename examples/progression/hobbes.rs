@@ -79,13 +79,14 @@ fn main() {
             SavedFormat::id("l3b").round().quantise::<i32>((Q as i32).pow(4)),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
+        .build_custom(|builder, (stm_inputs, ntm_inputs, output_buckets), target| {
             // input layer factoriser
             let l0f = builder.new_weights("l0f", Shape::new(L1, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(INPUT_BUCKETS);
 
             // input layer weights
             let mut l0 = builder.new_affine("l0", 768 * INPUT_BUCKETS, L1);
+            l0.init_with_effective_input_size(32);
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
@@ -98,13 +99,22 @@ fn main() {
             let ntm_hidden = l0.forward(ntm_inputs).crelu().pairwise_mul();
             let l0_out = stm_hidden.concat(ntm_hidden);
 
+            let ones_l1_vec = builder.new_constant(Shape::new(1, L1), &[1.0 / L1 as f32; L1]);
+            let l0_out_norm = ones_l1_vec.matmul(l0_out);
+
             let l1_out = l1.forward(l0_out).select(output_buckets);
             let hl2 = l1_out.concat(l1_out.abs_pow(2.0)).crelu();
 
             let l2_out = l2.forward(hl2).select(output_buckets);
             let hl3 = l2_out.crelu();
 
-            l3.forward(hl3).select(output_buckets)
+            let l3_out = l3.forward(hl3).select(output_buckets);
+
+            let loss = l3_out.sigmoid().squared_error(target);
+
+            let loss = loss + 0.005 * l0_out_norm;
+
+            (l3_out, loss)
         });
 
     let l0_clip = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
