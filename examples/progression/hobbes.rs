@@ -125,7 +125,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-41-s1".to_string(),
+        net_id: "hobbes-42-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(201, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
@@ -134,7 +134,7 @@ fn main() {
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-41-s2".to_string(),
+        net_id: "hobbes-42-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
         wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
