@@ -15,7 +15,7 @@ use bullet_lib::{
 use viriformat::dataformat::Filter;
 use bullet_lib::game::outputs::MaterialCount;
 
-const L1: usize = 1280;
+const L1: usize = 1792;
 const L2: usize = 16;
 const L3: usize = 32;
 const SCALE: i32 = 400;
@@ -85,7 +85,6 @@ fn main() {
 
             // input layer weights
             let mut l0 = builder.new_affine("l0", 768 * INPUT_BUCKETS, L1);
-            l0.init_with_effective_input_size(32);
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
