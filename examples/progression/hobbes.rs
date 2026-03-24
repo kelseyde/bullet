@@ -131,7 +131,7 @@ fn main() {
         net_id: "hobbes-43-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.75 } },
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
         lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
     };
@@ -140,7 +140,7 @@ fn main() {
         net_id: "hobbes-43-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
-        wdl_scheduler: wdl::LinearWDL { start: 0.75, end: 0.9},
+        wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
         lr_scheduler: lr::ConstantLR { value: 0.00000081 },
         save_rate: 10,
     };
