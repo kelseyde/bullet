@@ -1,3 +1,8 @@
+use std::mem::zeroed;
+use std::sync::atomic::{AtomicU64, Ordering};
+use rand::{rng, Rng};
+use viriformat::chess::board::Board;
+use viriformat::chess::chessmove::Move;
 use bullet_lib::value::loader::ViriBinpackLoader;
 use bullet_lib::{
     game::inputs::{get_num_buckets, ChessBucketsMirrored},
@@ -12,8 +17,9 @@ use bullet_lib::{
     },
     value::ValueTrainerBuilder,
 };
-use viriformat::dataformat::Filter;
+use viriformat::dataformat::{Filter, WDL};
 use bullet_lib::game::outputs::MaterialCount;
+use bullet_lib::value::loader::viribinpack::ViriFilter;
 
 const L1: usize = 1792;
 const L2: usize = 16;
@@ -122,7 +128,7 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-42-s1".to_string(),
+        net_id: "hobbes-43-s1".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 800),
         wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.75 } },
@@ -131,7 +137,7 @@ fn main() {
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-42-s2".to_string(),
+        net_id: "hobbes-43-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
         wdl_scheduler: wdl::LinearWDL { start: 0.75, end: 0.9},
@@ -144,8 +150,8 @@ fn main() {
     let stage1_dataset_path = "/workspace/hobbes-all.vf";
     let stage2_dataset_path = "/workspace/hobbes-best.vf";
 
-    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, filter());
-    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, filter());
+    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, ViriFilter::Custom(filter));
+    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, ViriFilter::Custom(filter));
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
@@ -180,7 +186,51 @@ fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSte
     }
 }
 
-fn filter() -> Filter {
+fn piece_count_acceptance(board: &Board) -> f64 {
+    #[rustfmt::skip]
+    const DESIRED_DISTRIBUTION: [f64; 33] = [
+        0.018411966423, 0.020641545085, 0.022727271053,
+        0.024669162740, 0.026467201733, 0.028121406444,
+        0.029631758462, 0.030998276198, 0.032220941240,
+        0.033299772000, 0.034234750067, 0.035025893853,
+        0.035673184944, 0.036176641754, 0.036536245870,
+        0.036752015705, 0.036823932846, 0.036752015705,
+        0.036536245870, 0.036176641754, 0.035673184944,
+        0.035025893853, 0.034234750067, 0.033299772000,
+        0.032220941240, 0.030998276198, 0.029631758462,
+        0.028121406444, 0.026467201733, 0.024669162740,
+        0.022727271053, 0.020641545085, 0.018411966423,
+    ];
+
+    static PIECE_COUNT_STATS: [AtomicU64; 33] = unsafe {
+        zeroed()
+    };
+    static PIECE_COUNT_TOTAL: AtomicU64 = AtomicU64::new(0);
+
+    let pc = board.pieces.occupied().count() as usize;
+    let count = PIECE_COUNT_STATS[pc].fetch_add(1, Ordering::Relaxed) + 1;
+    let total = PIECE_COUNT_TOTAL.fetch_add(1, Ordering::Relaxed) + 1;
+    let frequency = count as f64 / total as f64;
+
+    // Calculate the acceptance probability for this piece count
+    let acceptance = 0.5 * DESIRED_DISTRIBUTION[pc] / frequency;
+    acceptance.clamp(0., 1.)
+}
+
+fn filter(board: &Board, mv: Move, eval: i16, wdl: f32) -> bool {
+    let default_viri_filter = default_viri_filter();
+    let mut rng = rng();
+    let wdl = match wdl {
+        1.0 => WDL::Win,
+        0.5 => WDL::Draw,
+        0.0 => WDL::Loss,
+        _ => unreachable!(),
+    };
+    !default_viri_filter.should_filter(mv, eval as i32, board, wdl, &mut rng)
+        && rng.random_bool(piece_count_acceptance(board))
+}
+
+fn default_viri_filter() -> Filter {
     Filter {
         min_ply: 16,
         min_pieces: 4,
