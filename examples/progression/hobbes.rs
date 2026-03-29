@@ -15,7 +15,7 @@ use bullet_lib::{
 use viriformat::dataformat::Filter;
 use bullet_lib::game::outputs::MaterialCount;
 
-const L1: usize = 1280;
+const L1: usize = 1536;
 const L2: usize = 16;
 const L3: usize = 32;
 const SCALE: i32 = 400;
@@ -115,43 +115,16 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
     let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-43-s1".to_string(),
+        net_id: "hobbes-40-s1".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.2 },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.000752025, final_superbatch: 200 },
+        steps: training_steps(581, 800),
+        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
+        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
         save_rate: 10,
     };
 
     let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-43-s2".to_string(),
-        eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::LinearWDL { start: 0.2, end: 0.4 },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.000752025, final_lr: 0.00050405, final_superbatch: 200 },
-        save_rate: 10,
-    };
-
-    let stage_3_schedule = TrainingSchedule {
-        net_id: "hobbes-43-s3".to_string(),
-        eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::LinearWDL { start: 0.4, end: 0.6 },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.00050405, final_lr: 0.000256075, final_superbatch: 200 },
-        save_rate: 10,
-    };
-
-    let stage_4_schedule = TrainingSchedule {
-        net_id: "hobbes-43-s4".to_string(),
-        eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::LinearWDL { start: 0.6, end: 0.75 },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.000256075, final_lr: 0.0000081, final_superbatch: 200 },
-        save_rate: 10,
-    };
-
-    let stage_5_schedule = TrainingSchedule {
-        net_id: "hobbes-43-s5".to_string(),
+        net_id: "hobbes-40-s2".to_string(),
         eval_scale: 400.0,
         steps: training_steps(1, 200),
         wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
@@ -161,23 +134,15 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_dataset_path = "/workspace/data/hobbes-s1.vf";
-    let stage2_dataset_path = "/workspace/data/hobbes-s2.vf";
-    let stage3_dataset_path = "/workspace/data/hobbes-s3.vf";
-    let stage4_dataset_path = "/workspace/data/hobbes-s4.vf";
-    let stage5_dataset_path = "/workspace/data/hobbes-s5.vf";
+    let stage1_dataset_path = "/workspace/hobbes-all.vf";
+    let stage2_dataset_path = "/workspace/hobbes-best.vf";
 
     let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, filter());
     let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, filter());
-    let stage3_data_loader = ViriBinpackLoader::new(stage3_dataset_path, 16384, 24, filter());
-    let stage4_data_loader = ViriBinpackLoader::new(stage4_dataset_path, 16384, 24, filter());
-    let stage5_data_loader = ViriBinpackLoader::new(stage5_dataset_path, 16384, 24, filter());
 
+    trainer.load_from_checkpoint("checkpoints/hobbes-39-s1-580");
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
-    trainer.run(&stage_3_schedule, &settings, &stage3_data_loader);
-    trainer.run(&stage_4_schedule, &settings, &stage4_data_loader);
-    trainer.run(&stage_5_schedule, &settings, &stage5_data_loader);
     // hobbes-best: 69GB
     // hobbes-all: 85GB
 }
