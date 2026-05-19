@@ -1,43 +1,37 @@
 pub(crate) mod builder;
-mod dataloader;
+pub mod dataloader;
 pub mod loader;
-mod save;
+pub mod save;
 
 use std::cell::RefCell;
 
 pub use builder::{NoOutputBuckets, ValueTrainerBuilder};
-
-use acyclib::{
-    graph::Node,
-    trainer::{self, Trainer, logger, optimiser::OptimiserState},
-};
-
-use acyclib::{
-    graph::{GraphNodeId, GraphNodeIdTy, like::GraphLike, save::SavedFormat},
-    trainer::dataloader::{PreparedBatchDevice, PreparedBatchHost},
+use bullet_compiler::tensor::TValue;
+use bullet_trainer::{
+    Trainer,
+    model::save::SavedFormat,
+    optimiser::OptimiserState,
+    run::{self, dataloader::PreparedBatchHost, logger},
 };
 
 use crate::{
     game::{inputs::SparseInputType, outputs::OutputBuckets},
-    nn::{ExecutionContext, Graph},
+    nn::ExecutionContext,
     trainer::{
         schedule::{TrainingSchedule, lr::LrScheduler, wdl::WdlScheduler},
         settings::LocalSettings,
     },
-    value::{
-        dataloader::ValueDataLoader,
-        loader::{DefaultDataLoader, LoadableDataType},
-    },
 };
 
-use crate::value::loader::PreparedData;
+use dataloader::ValueDataLoader;
+use loader::{DefaultDataLoader, LoadableDataType, PreparedData};
 
 /// Value network trainer, generally for training NNUE networks.
 pub struct ValueTrainer<
     Opt: OptimiserState<ExecutionContext>,
     Inp: SparseInputType,
     Out: OutputBuckets<Inp::RequiredDataType>,
->(Trainer<ExecutionContext, Graph, Opt, ValueTrainerState<Inp, Out>>);
+>(Trainer<ExecutionContext, Opt, ValueTrainerState<Inp, Out>>);
 
 impl<Opt, Inp, Out> std::ops::Deref for ValueTrainer<Opt, Inp, Out>
 where
@@ -45,7 +39,7 @@ where
     Inp: SparseInputType,
     Out: OutputBuckets<Inp::RequiredDataType>,
 {
-    type Target = Trainer<ExecutionContext, Graph, Opt, ValueTrainerState<Inp, Out>>;
+    type Target = Trainer<ExecutionContext, Opt, ValueTrainerState<Inp, Out>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -72,10 +66,24 @@ pub struct ValueTrainerState<Inp: SparseInputType, Out> {
     output_getter: Out,
     blend_getter: B<Inp>,
     weight_getter: Option<Wgt<Inp>>,
-    output_node: Node,
     saved_format: Vec<SavedFormat>,
     use_win_rate_model: bool,
     wdl: bool,
+}
+
+impl<I: SparseInputType, O: OutputBuckets<I::RequiredDataType>> ValueTrainerState<I, O> {
+    pub fn make_dataloader<D>(&self, dataloader: D, scale: f32) -> DefaultDataLoader<I, O, D> {
+        DefaultDataLoader::new(
+            self.input_getter.clone(),
+            self.output_getter,
+            self.blend_getter,
+            self.weight_getter,
+            self.use_win_rate_model,
+            self.wdl,
+            scale,
+            dataloader,
+        )
+    }
 }
 
 impl<Inp: SparseInputType, Out> ValueTrainerState<Inp, Out>
@@ -132,16 +140,7 @@ where
             )
         }
 
-        let dataloader = DefaultDataLoader::new(
-            self.state.input_getter.clone(),
-            self.state.output_getter,
-            self.state.blend_getter,
-            self.state.weight_getter,
-            self.state.use_win_rate_model,
-            self.state.wdl,
-            schedule.eval_scale,
-            dataloader.clone(),
-        );
+        let dataloader = self.state.make_dataloader(dataloader.clone(), schedule.eval_scale);
 
         let _ = std::fs::create_dir(settings.output_directory);
 
@@ -154,7 +153,7 @@ where
         let mut ticks_since_last = 0.0;
 
         self.train_custom(
-            trainer::schedule::TrainingSchedule {
+            run::schedule::TrainingSchedule {
                 steps,
                 log_rate: 128,
                 lr_schedule: Box::new(|a, b| lr_scheduler.lr(a, b)),
@@ -190,40 +189,27 @@ where
         .unwrap();
     }
 
-    pub fn get_output_values(&self) -> Vec<f32> {
-        let id = GraphNodeId::new(self.state.output_node.idx(), GraphNodeIdTy::Values);
-
-        #[cfg(not(any(feature = "multigpu", feature = "cpu")))]
-        {
-            self.optimiser.graph.get(id).unwrap().get_dense_vals().unwrap()
-        }
-
-        #[cfg(any(feature = "multigpu", feature = "cpu"))]
-        self.optimiser.graph.get_all(id).unwrap().iter().flat_map(|x| x.get_dense_vals().unwrap()).collect()
-    }
-
     pub fn eval_raw_output(&mut self, fen: &str) -> Vec<f32>
     where
         Inp::RequiredDataType: std::str::FromStr<Err: std::fmt::Debug> + LoadableDataType,
     {
+        self.0.optimiser.model.set_fwd_batch_size(1).unwrap();
+
         let pos = format!("{fen} | 0 | 0.0").parse::<Inp::RequiredDataType>().unwrap();
 
         let host_data = self.state.prepare(&[pos], 1, 1.0, 1.0);
 
-        #[cfg(not(any(feature = "multigpu", feature = "cpu")))]
-        let graph = &mut self.optimiser.graph;
+        let model = &self.optimiser.model;
+        let device = model.device();
+        let stream = device.new_stream().unwrap();
 
-        #[cfg(any(feature = "multigpu", feature = "cpu"))]
-        let graph = self.optimiser.graph.primary_mut();
+        let inputs = host_data.to_device(&device).unwrap();
+        let outputs = model.make_forward_output_tensors(1).unwrap();
+        model.forward(&stream, &inputs, &outputs).unwrap().value().unwrap();
 
-        let mut device_data = PreparedBatchDevice::new(graph.devices(), &host_data).unwrap();
-
-        device_data.load_into_graph(graph).unwrap();
-
-        graph.synchronise().unwrap();
-        graph.forward().unwrap();
-
-        self.get_output_values()
+        let output = outputs.get("outputs/output").unwrap().clone();
+        let TValue::F32(output) = output.to_host().unwrap() else { panic!() };
+        output
     }
 
     pub fn eval(&mut self, fen: &str) -> f32
@@ -255,17 +241,7 @@ where
         let steps = schedule.steps;
         let threads = settings.threads;
         let wdl = schedule.wdl_scheduler.clone();
-        let dataloader = DefaultDataLoader::new(
-            self.state.input_getter.clone(),
-            self.state.output_getter,
-            self.state.blend_getter,
-            self.state.weight_getter,
-            self.state.use_win_rate_model,
-            self.state.wdl,
-            schedule.eval_scale,
-            dataloader.clone(),
-        );
-
+        let dataloader = self.state.make_dataloader(dataloader.clone(), schedule.eval_scale);
         let dataloader = ValueDataLoader { steps, threads, dataloader, wdl };
 
         self.0.measure_max_cpu_throughput(dataloader, steps).unwrap()

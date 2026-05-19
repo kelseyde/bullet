@@ -3,17 +3,12 @@ use std::{
     io::{self, Write},
 };
 
-use crate::{
-    nn::{ExecutionContext, Graph},
-    value::ValueTrainerState,
-};
-use acyclib::{
-    graph::{
-        GraphNodeId, GraphNodeIdTy,
-        like::GraphLike,
-        save::{GraphWeights, QuantTarget},
-    },
-    trainer::{Trainer, optimiser::OptimiserState},
+use crate::{nn::ExecutionContext, value::ValueTrainerState};
+use bullet_compiler::tensor::TValue;
+use bullet_trainer::{
+    Trainer,
+    model::save::{ModelWeights, QuantTarget},
+    optimiser::OptimiserState,
 };
 
 use crate::{
@@ -21,9 +16,9 @@ use crate::{
     value::{ValueTrainer, loader::LoadableDataType},
 };
 
-type ValueTrainerInner<Opt, Inp, Out> = Trainer<ExecutionContext, Graph, Opt, ValueTrainerState<Inp, Out>>;
+type ValueTrainerInner<Opt, Inp, Out> = Trainer<ExecutionContext, Opt, ValueTrainerState<Inp, Out>>;
 
-pub(super) fn write_losses(path: &str, error_record: &[(usize, usize, f32)]) {
+pub fn write_losses(path: &str, error_record: &[(usize, usize, f32)]) {
     use std::io::Write;
 
     let mut writer = std::io::BufWriter::new(std::fs::File::create(path).expect("Opening log file failed!"));
@@ -32,7 +27,7 @@ pub(super) fn write_losses(path: &str, error_record: &[(usize, usize, f32)]) {
     }
 }
 
-pub(super) fn save_to_checkpoint<Opt, Inp, Out>(trainer: &ValueTrainerInner<Opt, Inp, Out>, path: &str)
+pub fn save_to_checkpoint<Opt, Inp, Out>(trainer: &ValueTrainerInner<Opt, Inp, Out>, path: &str)
 where
     Opt: OptimiserState<ExecutionContext>,
     Inp: SparseInputType,
@@ -56,7 +51,7 @@ where
     }
 }
 
-pub(super) fn save_unquantised<Opt, Inp, Out>(trainer: &ValueTrainerInner<Opt, Inp, Out>, path: &str) -> io::Result<()>
+pub fn save_unquantised<Opt, Inp, Out>(trainer: &ValueTrainerInner<Opt, Inp, Out>, path: &str) -> io::Result<()>
 where
     Opt: OptimiserState<ExecutionContext>,
     Inp: SparseInputType,
@@ -69,16 +64,8 @@ where
 
     for fmt in &trainer.state.saved_format {
         if let Some(id) = &fmt.get_id() {
-            let idx =
-                GraphNodeId::new(trainer.optimiser.graph.primary().weight_idx(id).unwrap(), GraphNodeIdTy::Values);
-            let weights = trainer.optimiser.graph.primary().get(idx).unwrap();
-            let weights = weights.dense();
-
-            let mut weight_buf = vec![0.0; weights.size()];
-            let written = weights.write_to_slice(&mut weight_buf).unwrap();
-            assert_eq!(written, weights.size());
-
-            let quantised = QuantTarget::Float.quantise(false, &weight_buf)?;
+            let Some(TValue::F32(weights)) = trainer.optimiser.model.get_weights(id) else { panic!() };
+            let quantised = QuantTarget::Float.quantise(false, &weights)?;
             buf.extend_from_slice(&quantised);
         }
     }
@@ -88,14 +75,14 @@ where
     Ok(())
 }
 
-pub(super) fn save_quantised<Opt, Inp, Out>(trainer: &ValueTrainerInner<Opt, Inp, Out>, path: &str) -> io::Result<()>
+pub fn save_quantised<Opt, Inp, Out>(trainer: &ValueTrainerInner<Opt, Inp, Out>, path: &str) -> io::Result<()>
 where
     Opt: OptimiserState<ExecutionContext>,
     Inp: SparseInputType,
     Inp::RequiredDataType: LoadableDataType,
     Out: OutputBuckets<Inp::RequiredDataType>,
 {
-    let weight_store = GraphWeights::from(trainer.optimiser.graph.primary());
+    let weight_store = ModelWeights::from(&trainer.optimiser.model);
 
     let mut file = File::create(path).unwrap();
     let mut buf = Vec::new();
