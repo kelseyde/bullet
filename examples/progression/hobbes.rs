@@ -78,7 +78,6 @@ fn main() {
             SavedFormat::id("l3w").round().quantise::<i32>(Q as i32),
             SavedFormat::id("l3b").round().quantise::<i32>((Q as i32).pow(4)),
         ])
-        .loss_fn(|output, target| output.sigmoid().squared_error(target))
         .build_custom(|builder, (stm_inputs, ntm_inputs, output_buckets), target| {
             // input layer factoriser
             let l0f = builder.new_weights("l0f", Shape::new(L1, 768), InitSettings::Zeroed);
