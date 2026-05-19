@@ -50,15 +50,9 @@ fn main() {
         .output_buckets(MaterialCount::<OUTPUT_BUCKETS>)
         .save_format(&[
             SavedFormat::id("l0w")
-                .transform(|builder, mut weights| {
-                    let factoriser = builder.get("l0f").values;
-                    let expanded = factoriser.repeat(INPUT_BUCKETS);
-
-                    for (i, &j) in weights.iter_mut().zip(expanded.iter()) {
-                        *i += j;
-                    }
-
-                    weights
+                .transform(|store, weights| {
+                    let factoriser = store.get("l0f").values.f32().repeat(INPUT_BUCKETS);
+                    weights.into_iter().zip(factoriser).map(|(a, b)| a + b).collect()
                 })
                 .round()
                 .quantise::<i16>(Q0),
