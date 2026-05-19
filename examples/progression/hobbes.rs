@@ -15,7 +15,7 @@ use bullet_lib::{
 use viriformat::dataformat::Filter;
 use bullet_lib::game::outputs::MaterialCount;
 
-const L1: usize = 1536;
+const L1: usize = 1280;
 const L2: usize = 16;
 const L3: usize = 32;
 const SCALE: i32 = 400;
