@@ -1,11 +1,11 @@
 /workspace/bullet/target/release/bullet-utils viribinpack interleave \
-  hobbes-6.vf hobbes-7.vf hobbes-8.vf hobbes-9.vf hobbes-10.vf hobbes-11.vf hobbes-12.vf hobbes-13.vf hobbes-15.vf hobbes-16.vf hobbes-19.vf hobbes-20.vf hobbes-21.vf hobbes-23.vf hobbes-25.vf hobbes-27.vf hobbes-31-dfrc.vf hobbes-31-std.vf hobbes-33-dfrc.vf hobbes-36-20k.vf hobbes-36.vf hobbes-37-20k.vf hobbes-38.vf hobbes-38-2.vf hobbes-42.vf \
+  hobbes-6.vf hobbes-7.vf hobbes-8.vf hobbes-9.vf hobbes-10.vf hobbes-11.vf hobbes-12.vf hobbes-13.vf hobbes-15.vf hobbes-16.vf hobbes-19.vf hobbes-20.vf hobbes-21.vf hobbes-23.vf hobbes-25.vf hobbes-27.vf hobbes-31-dfrc.vf hobbes-31-std.vf hobbes-33-dfrc.vf hobbes-36-20k.vf hobbes-36.vf hobbes-37-20k.vf hobbes-38.vf hobbes-38-2.vf hobbes-42.vf hobbes-42-12k-dfrc.vf hobbes-42-12k-std-2.vf hobbes-42-12k-std-3.vf \
   --output hobbes-all.vf
 
 rm hobbes-6.vf hobbes-7.vf hobbes-8.vf hobbes-9.vf hobbes-10.vf hobbes-11.vf hobbes-12.vf hobbes-13.vf hobbes-15.vf hobbes-16.vf hobbes-19.vf hobbes-20.vf hobbes-21.vf
 
 /workspace/bullet/target/release/bullet-utils viribinpack interleave \
-  hobbes-23.vf hobbes-25.vf hobbes-27.vf hobbes-31-dfrc.vf hobbes-31-std.vf hobbes-33-dfrc.vf hobbes-36-20k.vf hobbes-36.vf hobbes-37-20k.vf hobbes-38.vf hobbes-38-2.vf hobbes-42.vf \
+  hobbes-23.vf hobbes-25.vf hobbes-27.vf hobbes-31-dfrc.vf hobbes-31-std.vf hobbes-33-dfrc.vf hobbes-36-20k.vf hobbes-36.vf hobbes-37-20k.vf hobbes-38.vf hobbes-38-2.vf hobbes-42.vf hobbes-42-12k-dfrc.vf hobbes-42-12k-std-2.vf hobbes-42-12k-std-3.vf \
   --output hobbes-best.vf
 
-rm hobbes-23.vf hobbes-25.vf hobbes-27.vf hobbes-31-dfrc.vf hobbes-31-std.vf hobbes-33-dfrc.vf hobbes-36-20k.vf hobbes-36.vf hobbes-37-20k.vf hobbes-38.vf hobbes-38-2.vf hobbes-42.vf
+rm hobbes-23.vf hobbes-25.vf hobbes-27.vf hobbes-31-dfrc.vf hobbes-31-std.vf hobbes-33-dfrc.vf hobbes-36-20k.vf hobbes-36.vf hobbes-37-20k.vf hobbes-38.vf hobbes-38-2.vf hobbes-42.vf hobbes-42-12k-dfrc.vf hobbes-42-12k-std-2.vf hobbes-42-12k-std-3.vf

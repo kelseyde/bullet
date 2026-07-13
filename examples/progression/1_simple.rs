@@ -1,22 +1,18 @@
-use viriformat::dataformat::Filter;
 use bullet_lib::{
     game::inputs::Chess768,
     nn::optimiser::AdamW,
     trainer::{
         save::SavedFormat,
-        schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
+        schedule::{TrainingSchedule, TrainingSteps, lr, wdl},
         settings::LocalSettings,
     },
-    value::{loader::DirectSequentialDataLoader, ValueTrainerBuilder},
+    value::{ValueTrainerBuilder, loader::DirectSequentialDataLoader},
 };
-use bullet_lib::value::loader::ViriBinpackLoader;
-
-mod hobbes;
 
 fn main() {
     // hyperparams to fiddle with
     let hl_size = 128;
-    let dataset_path = "/workspace/hobbes-all.vf";
+    let dataset_path = "data/baseline.data";
     let initial_lr = 0.001;
     let final_lr = 0.001 * 0.3f32.powi(5);
     let superbatches = 40;
@@ -61,22 +57,7 @@ fn main() {
 
     let settings = LocalSettings { threads: 2, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let dataloader =  ViriBinpackLoader::new(dataset_path, 1024, 12, filter());
+    let dataloader = DirectSequentialDataLoader::new(&[dataset_path]);
 
     trainer.run(&schedule, &settings, &dataloader);
-}
-
-fn filter() -> Filter {
-    Filter {
-        min_ply: 16,
-        min_pieces: 4,
-        max_eval: 31339,
-        filter_tactical: true,
-        filter_check: true,
-        filter_castling: false,
-        max_eval_incorrectness: u32::MAX,
-        random_fen_skipping: true,
-        random_fen_skip_probability: 0.5,
-        ..Default::default()
-    }
 }

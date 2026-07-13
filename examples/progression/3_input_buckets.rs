@@ -1,33 +1,39 @@
-use bullet_lib::value::loader::ViriBinpackLoader;
 use bullet_lib::{
-    game::inputs::{get_num_buckets, ChessBucketsMirrored},
+    game::{
+        inputs::{ChessBucketsMirrored, get_num_buckets},
+        outputs::MaterialCount,
+    },
     nn::{
-        optimiser::{AdamW, AdamWParams}, InitSettings,
-        Shape,
+        InitSettings, Shape,
+        optimiser::{AdamW, AdamWParams},
     },
     trainer::{
         save::SavedFormat,
-        schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
+        schedule::{TrainingSchedule, TrainingSteps, lr, wdl},
         settings::LocalSettings,
     },
-    value::ValueTrainerBuilder,
+    value::{ValueTrainerBuilder, loader::DirectSequentialDataLoader},
 };
-use viriformat::dataformat::Filter;
 
 fn main() {
     // hyperparams to fiddle with
-    const HL_SIZE: usize = 1280;
-    const NUM_OUTPUT_BUCKETS: usize = 1;
+    let hl_size = 1024;
+    let dataset_path = "data/baseline.data";
+    let initial_lr = 0.001;
+    let final_lr = 0.001 * 0.3f32.powi(5);
+    let superbatches = 640;
+    let wdl_proportion = 0.75;
+    const NUM_OUTPUT_BUCKETS: usize = 8;
     #[rustfmt::skip]
     const BUCKET_LAYOUT: [usize; 32] = [
-         0,  1,  2,  3,
-         4,  5,  6,  7,
-         8,  9, 10, 11,
-         8,  9, 10, 11,
-        12, 12, 13, 13,
-        12, 12, 13, 13,
-        14, 14, 15, 15,
-        14, 14, 15, 15
+        0, 1, 2, 3,
+        4, 4, 5, 5,
+        6, 6, 6, 6,
+        7, 7, 7, 7,
+        8, 8, 8, 8,
+        8, 8, 8, 8,
+        9, 9, 9, 9,
+        9, 9, 9, 9,
     ];
 
     const NUM_INPUT_BUCKETS: usize = get_num_buckets(&BUCKET_LAYOUT);
@@ -36,6 +42,7 @@ fn main() {
         .dual_perspective()
         .optimiser(AdamW)
         .inputs(ChessBucketsMirrored::new(BUCKET_LAYOUT))
+        .output_buckets(MaterialCount::<NUM_OUTPUT_BUCKETS>)
         .save_format(&[
             // merge in the factoriser weights
             SavedFormat::id("l0w")
@@ -50,23 +57,23 @@ fn main() {
             SavedFormat::id("l1b").round().quantise::<i16>(255 * 64),
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
-        .build(|builder, stm_inputs, ntm_inputs| {
+        .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer factoriser
-            let l0f = builder.new_weights("l0f", Shape::new(HL_SIZE, 768), InitSettings::Zeroed);
+            let l0f = builder.new_weights("l0f", Shape::new(hl_size, 768), InitSettings::Zeroed);
             let expanded_factoriser = l0f.repeat(NUM_INPUT_BUCKETS);
 
             // input layer weights
-            let mut l0 = builder.new_affine("l0", 768 * NUM_INPUT_BUCKETS, HL_SIZE);
+            let mut l0 = builder.new_affine("l0", 768 * NUM_INPUT_BUCKETS, hl_size);
             l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
-            let l1 = builder.new_affine("l1", 2 * HL_SIZE, NUM_OUTPUT_BUCKETS);
+            let l1 = builder.new_affine("l1", 2 * hl_size, NUM_OUTPUT_BUCKETS);
 
             // inference
             let stm_hidden = l0.forward(stm_inputs).screlu();
             let ntm_hidden = l0.forward(ntm_inputs).screlu();
             let hidden_layer = stm_hidden.concat(ntm_hidden);
-            l1.forward(hidden_layer)
+            l1.forward(hidden_layer).select(output_buckets)
         });
 
     // need to account for factoriser weight magnitudes
@@ -74,57 +81,23 @@ fn main() {
     trainer.optimiser.set_params_for_weight("l0w", stricter_clipping);
     trainer.optimiser.set_params_for_weight("l0f", stricter_clipping);
 
-    let stage_1_schedule = TrainingSchedule {
-        net_id: "hobbes-36-s1".to_string(),
+    let schedule = TrainingSchedule {
+        net_id: "3_input_buckets".to_string(),
         eval_scale: 400.0,
-        steps: training_steps(1, 800),
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.4 } },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
+        steps: TrainingSteps {
+            batch_size: 16_384,
+            batches_per_superbatch: 6104,
+            start_superbatch: 1,
+            end_superbatch: superbatches,
+        },
+        wdl_scheduler: wdl::ConstantWDL { value: wdl_proportion },
+        lr_scheduler: lr::CosineDecayLR { initial_lr, final_lr, final_superbatch: superbatches },
         save_rate: 10,
     };
 
-    let stage_2_schedule = TrainingSchedule {
-        net_id: "hobbes-36-s2".to_string(),
-        eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
-        lr_scheduler: lr::ConstantLR { value: 0.00000081 },
-        save_rate: 10,
-    };
+    let settings = LocalSettings { threads: 2, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
+    let dataloader = DirectSequentialDataLoader::new(&[dataset_path]);
 
-    let stage1_dataset_path = "/workspace/data/hobbes-all.vf";
-    let stage2_dataset_path = "/workspace/data/hobbes-best.vf";
-
-    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 32768, 24, filter(0.5));
-    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 32768, 24, filter(0.5));
-
-    trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
-    trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
-    // space needed on cluster: 1.2TB BF
-}
-
-fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSteps {
-    TrainingSteps {
-        batch_size: 16_384,
-        batches_per_superbatch: 6104,
-        start_superbatch,
-        end_superbatch,
-    }
-}
-
-fn filter(skipping_probability: f64) -> Filter {
-    Filter {
-        min_ply: 16,
-        min_pieces: 4,
-        max_eval: 31339,
-        filter_tactical: true,
-        filter_check: true,
-        filter_castling: false,
-        max_eval_incorrectness: u32::MAX,
-        random_fen_skipping: true,
-        random_fen_skip_probability: skipping_probability,
-        ..Default::default()
-    }
+    trainer.run(&schedule, &settings, &dataloader);
 }
