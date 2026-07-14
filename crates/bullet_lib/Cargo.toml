@@ -60,3 +60,7 @@ path = "../../examples/progression/4_multi_layer.rs"
 [[example]]
 name = "hobbes"
 path = "../../examples/progression/hobbes.rs"
+
+[[example]]
+name = "verify"
+path = "../../examples/progression/verify.rs"
