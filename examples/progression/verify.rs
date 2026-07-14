@@ -50,15 +50,9 @@ fn main() {
         .output_buckets(MaterialCount::<OUTPUT_BUCKETS>)
         .save_format(&[
             SavedFormat::id("l0w")
-                .transform(|builder, mut weights| {
-                    let factoriser = builder.get("l0f").values;
-                    let expanded = factoriser.repeat(INPUT_BUCKETS);
-
-                    for (i, &j) in weights.iter_mut().zip(expanded.iter()) {
-                        *i += j;
-                    }
-
-                    weights
+                .transform(|store, weights| {
+                    let factoriser = store.get("l0f").values.f32().repeat(INPUT_BUCKETS);
+                    weights.into_iter().zip(factoriser).map(|(a, b)| a + b).collect()
                 })
                 .round()
                 .quantise::<i16>(Q0),
@@ -94,8 +88,9 @@ fn main() {
             let l3 = builder.new_affine("l3", L3, OUTPUT_BUCKETS);
 
             // inference
-            let stm_hidden = l0.forward(stm_inputs).crelu().pairwise_mul();
-            let ntm_hidden = l0.forward(ntm_inputs).crelu().pairwise_mul();
+            let ft = |input, start, end| l0.slice(start, end).forward(input).crelu();
+            let stm_hidden = ft(stm_inputs, 0, L1 / 2) * ft(stm_inputs, L1 / 2, L1);
+            let ntm_hidden = ft(ntm_inputs, 0, L1 / 2) * ft(ntm_inputs, L1 / 2, L1);
             let l0_out = stm_hidden.concat(ntm_hidden);
 
             let l1_out = l1.forward(l0_out).select(output_buckets);
@@ -114,7 +109,7 @@ fn main() {
     let l1_clip = AdamWParams { max_weight: L1_RANGE, min_weight: -L1_RANGE, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
-    trainer.load_from_checkpoint("checkpoints/hobbes-41-s2-200");
+    trainer.load_from_checkpoint("checkpoints/hobbes-43-s2-200");
 
     let eval = 400.0 * trainer.eval("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 | 0 | 0.0");
     println!("Eval: {eval:.3}cp");
