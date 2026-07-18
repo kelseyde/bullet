@@ -93,13 +93,8 @@ fn main() {
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
         .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
-            // input layer factoriser
-            let l0f = builder.new_weights("l0f", Shape::new(L1, 768), InitSettings::Zeroed);
-            let expanded_factoriser = l0f.repeat(INPUT_BUCKETS);
-
             // input layer weights
             let mut l0 = builder.new_affine("l0", 768 * INPUT_BUCKETS, L1);
-            l0.weights = l0.weights + expanded_factoriser;
 
             // output layer weights
             let l1 = builder.new_affine("l1", L1, OUTPUT_BUCKETS * L2);
@@ -123,7 +118,6 @@ fn main() {
 
     let l0_clip = AdamWParams { max_weight: 0.99, min_weight: -0.99, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l0w", l0_clip);
-    trainer.optimiser.set_params_for_weight("l0f", l0_clip);
 
     let l1_clip = AdamWParams { max_weight: L1_RANGE, min_weight: -L1_RANGE, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
