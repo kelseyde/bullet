@@ -13,6 +13,7 @@ use bullet_lib::{
     value::ValueTrainerBuilder,
 };
 use viriformat::dataformat::Filter;
+use bullet_lib::game::inputs::SparseInputType;
 use bullet_lib::game::outputs::MaterialCount;
 use crate::threat_inputs::ThreatInputs;
 
@@ -94,7 +95,7 @@ fn main() {
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
         .build(|builder, stm_inputs, ntm_inputs, output_buckets| {
             // input layer weights
-            let l0 = builder.new_affine("l0", 768 * INPUT_BUCKETS, L1);
+            let l0 = builder.new_affine("l0", inputs.num_inputs() * INPUT_BUCKETS, L1);
 
             // output layer weights
             let l1 = builder.new_affine("l1", L1, OUTPUT_BUCKETS * L2);
