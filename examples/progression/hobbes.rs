@@ -55,20 +55,34 @@ fn main() {
         .output_buckets(MaterialCount::<OUTPUT_BUCKETS>)
         .save_format(&[
             SavedFormat::id("l0w")
-                .transform(|store, weights| {
-                    let factoriser = store.get("l0f").values.f32().repeat(INPUT_BUCKETS);
-                    weights.into_iter().zip(factoriser).map(|(a, b)| a + b).collect()
+                .transform(|_, weights| {
+                    let threats = ThreatInputs::TOTAL_THREATS;
+                    let shared = weights[threats * L1..(threats + 768) * L1].repeat(INPUT_BUCKETS);
+                    let bucketed = &weights[(threats + 768) * L1..];
+                    bucketed.iter().zip(shared).map(|(&a, b)| a + b).collect()
                 })
                 .round()
                 .quantise::<i16>(Q0),
+            SavedFormat::id("l0w")
+                .transform(|_, weights| {
+                    let threats = ThreatInputs::TOTAL_THREATS;
+                    let clip = i8::MAX as f32 / Q0 as f32;
+                    println!(
+                        "{} {}",
+                        weights[0..threats * L1]
+                            .iter()
+                            .copied()
+                            .map(|f| { if f.clamp(-clip, clip) != f { 1 } else { 0 } })
+                            .sum::<i32>(),
+                        threats * L1,
+                    );
+                    weights[0..threats * L1].iter().map(|f| f.clamp(-clip, clip)).collect()
+                })
+                .round()
+                .quantise::<i8>(Q0),
             SavedFormat::id("l0b").round().quantise::<i16>(Q0),
             SavedFormat::id("l1w")
-                .transform(|_, mut weights| {
-                    for i in weights.iter_mut() {
-                        *i /= FT_SHIFT_SCALE * FT_SHIFT_SCALE;
-                    }
-                    weights
-                })
+                .transform(|_, weights| weights.iter().map(|f| f / (FT_SHIFT_SCALE * FT_SHIFT_SCALE)).collect())
                 .round()
                 .quantise::<i8>(Q1),
             SavedFormat::id("l1b").round().quantise::<i32>(Q as i32),
