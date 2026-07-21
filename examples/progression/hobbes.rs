@@ -17,7 +17,7 @@ use bullet_lib::game::inputs::SparseInputType;
 use bullet_lib::game::outputs::MaterialCount;
 use crate::threat_inputs::ThreatInputs;
 
-const NET_NAME: &str = "hobbes-44";
+const NET_NAME: &str = "hobbes-46";
 const L1: usize = 768;
 const L2: usize = 16;
 const L3: usize = 32;
