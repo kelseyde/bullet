@@ -18,7 +18,7 @@ use bullet_lib::game::outputs::MaterialCount;
 use crate::threat_inputs::ThreatInputs;
 
 const NET_NAME: &str = "hobbes-44";
-const L1: usize = 512;
+const L1: usize = 768;
 const L2: usize = 16;
 const L3: usize = 32;
 const SCALE: i32 = 400;
