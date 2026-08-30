@@ -162,9 +162,9 @@ fn main() {
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_dataset_path = "/workspace/data/hobbes-1.vf";
-    let stage2_dataset_path = "/workspace/data/hobbes-2.vf";
-    let stage3_dataset_path = "/workspace/data/hobbes-3.vf";
+    let stage1_dataset_path = "/workspace/data/hobbes-all.vf";
+    let stage2_dataset_path = "/workspace/data/hobbes-all.vf";
+    let stage3_dataset_path = "/workspace/data/hobbes-best.vf";
 
     let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, ViriFilter::Custom(should_keep));
     let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, ViriFilter::Custom(should_keep));
