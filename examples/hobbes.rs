@@ -1,4 +1,4 @@
-use bullet_lib::value::loader::ViriBinpackLoader;
+use bullet_lib::value::loader::{ViriBinpackLoader, ViriFilter};
 use bullet_lib::{
     game::inputs::{get_num_buckets, ChessBucketsMirrored},
     nn::{
@@ -12,7 +12,6 @@ use bullet_lib::{
     },
     value::ValueTrainerBuilder,
 };
-use viriformat::dataformat::Filter;
 use bullet_lib::game::inputs::SparseInputType;
 use bullet_lib::game::outputs::MaterialCount;
 use self::threat_inputs::ThreatInputs;
@@ -32,6 +31,10 @@ const FT_SHIFT: usize = 8;
 const FT_SHIFT_SCALE: f32 = Q0 as f32 / ((1 << FT_SHIFT) as f32);
 const I8_RANGE: f32 = i8::MAX as f32 / (Q1 as f32);
 const L1_RANGE: f32 = I8_RANGE * FT_SHIFT_SCALE * FT_SHIFT_SCALE;
+
+const SUPERBATCHES_STAGE0: usize = 100;
+const SUPERBATCHES_STAGE1: usize = 800;
+const SUPERBATCHES_STAGE2: usize = 200;
 
 #[rustfmt::skip]
 const BUCKET_LAYOUT: [usize; 32] = [
@@ -123,34 +126,53 @@ fn main() {
     let l1_clip = AdamWParams { max_weight: L1_RANGE, min_weight: -L1_RANGE, ..Default::default() };
     trainer.optimiser.set_params_for_weight("l1w", l1_clip);
 
+    const WARMUP_SBS: usize = SUPERBATCHES_STAGE0 / 2;
+    const COOLDOWN_SBS: usize = SUPERBATCHES_STAGE0 - WARMUP_SBS;
+
     let stage_1_schedule = TrainingSchedule {
         net_id: format!("{}-s1", NET_NAME),
         eval_scale: 400.0,
-        steps: training_steps(1, 800),
-        wdl_scheduler: wdl::Warmup { warmup_batches: 100, inner: wdl::LinearWDL { start: 0.2, end: 0.6 } },
-        lr_scheduler: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.0000081, final_superbatch: 800 },
+        steps: training_steps(1, SUPERBATCHES_STAGE0),
+        wdl_scheduler: wdl::ConstantWDL { value: 0.2 },
+        lr_scheduler: lr::Sequence {
+            first: lr::LinearDecayLR { initial_lr: 1e-4, final_lr: 5e-3, final_superbatch: WARMUP_SBS },
+            second: lr::LinearDecayLR { initial_lr: 5e-3, final_lr: 1e-4, final_superbatch: COOLDOWN_SBS },
+            first_scheduler_final_superbatch: WARMUP_SBS,
+        },
         save_rate: 10,
     };
 
     let stage_2_schedule = TrainingSchedule {
         net_id: format!("{}-s2", NET_NAME),
         eval_scale: 400.0,
-        steps: training_steps(1, 200),
-        wdl_scheduler: wdl::ConstantWDL { value: 0.9 },
-        lr_scheduler: lr::ConstantLR { value: 0.00000081 },
+        steps: training_steps(1, SUPERBATCHES_STAGE1),
+        wdl_scheduler: wdl::LinearWDL { start: 0.2, end: 0.5 },
+        lr_scheduler: lr::LinearDecayLR { initial_lr: 1e-3, final_lr: 1e-6, final_superbatch: SUPERBATCHES_STAGE1 },
+        save_rate: 10,
+    };
+
+    let stage_3_schedule = TrainingSchedule {
+        net_id: format!("{}-s3", NET_NAME),
+        eval_scale: 400.0,
+        steps: training_steps(1, SUPERBATCHES_STAGE2),
+        wdl_scheduler: wdl::ConstantWDL { value: 1.0 },
+        lr_scheduler: lr::LinearDecayLR { initial_lr: 1e-5, final_lr: 1e-7, final_superbatch: SUPERBATCHES_STAGE2 },
         save_rate: 10,
     };
 
     let settings = LocalSettings { threads: 12, test_set: None, output_directory: "checkpoints", batch_queue_size: 32 };
 
-    let stage1_dataset_path = "/workspace/data/hobbes-all.vf";
-    let stage2_dataset_path = "/workspace/data/hobbes-best.vf";
+    let stage1_dataset_path = "/workspace/data/hobbes-1.vf";
+    let stage2_dataset_path = "/workspace/data/hobbes-2.vf";
+    let stage3_dataset_path = "/workspace/data/hobbes-3.vf";
 
-    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, filter());
-    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, filter());
+    let stage1_data_loader = ViriBinpackLoader::new(stage1_dataset_path, 16384, 24, ViriFilter::Custom(should_keep));
+    let stage2_data_loader = ViriBinpackLoader::new(stage2_dataset_path, 16384, 24, ViriFilter::Custom(should_keep));
+    let stage3_data_loader = ViriBinpackLoader::new(stage3_dataset_path, 16384, 24, ViriFilter::Custom(should_keep));
 
     trainer.run(&stage_1_schedule, &settings, &stage1_data_loader);
     trainer.run(&stage_2_schedule, &settings, &stage2_data_loader);
+    trainer.run(&stage_3_schedule, &settings, &stage3_data_loader);
 
     for fen in [
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -167,25 +189,10 @@ fn main() {
 
 fn training_steps(start_superbatch: usize, end_superbatch: usize) -> TrainingSteps {
     TrainingSteps {
-        batch_size: 16_384,
-        batches_per_superbatch: 6104,
+        batch_size: 16_384 * 8,
+        batches_per_superbatch: 6104 / 8,
         start_superbatch,
         end_superbatch,
-    }
-}
-
-fn filter() -> Filter {
-    Filter {
-        min_ply: 16,
-        min_pieces: 4,
-        max_eval: 31339,
-        filter_tactical: true,
-        filter_check: true,
-        filter_castling: false,
-        max_eval_incorrectness: u32::MAX,
-        random_fen_skipping: true,
-        random_fen_skip_probability: 0.5,
-        ..Default::default()
     }
 }
 
@@ -557,4 +564,82 @@ mod attacks {
     });
 
     pub const QUEEN: [u64; 64] = init!(|sq, 64| BISHOP[sq] | ROOK[sq]);
+}
+
+use std::cell::{Cell, RefCell};
+
+use bullet_lib::game::formats::viriformat::{
+    chess::{board::Board, chessmove::Move},
+    dataformat::{Filter, WDL},
+};
+use rand::{Rng, rng};
+
+fn piece_count_acceptance(board: &Board) -> f64 {
+    #[rustfmt::skip]
+    const DESIRED_DISTRIBUTION: [f64; 33] = [
+        0.018411966423, 0.020641545085, 0.022727271053,
+        0.024669162740, 0.026467201733, 0.028121406444,
+        0.029631758462, 0.030998276198, 0.032220941240,
+        0.033299772000, 0.034234750067, 0.035025893853,
+        0.035673184944, 0.036176641754, 0.036536245870,
+        0.036752015705, 0.036823932846, 0.036752015705,
+        0.036536245870, 0.036176641754, 0.035673184944,
+        0.035025893853, 0.034234750067, 0.033299772000,
+        0.032220941240, 0.030998276198, 0.029631758462,
+        0.028121406444, 0.026467201733, 0.024669162740,
+        0.022727271053, 0.020641545085, 0.018411966423,
+    ];
+
+    thread_local! {
+        static PIECE_COUNT_STATS: RefCell<[u64; 33]> = const { RefCell::new([0; 33]) };
+        static PIECE_COUNT_TOTAL: Cell<u64> = const { Cell::new(0) };
+    }
+
+    let pc = board.pieces.occupied().count() as usize;
+    let count = PIECE_COUNT_STATS.with_borrow_mut(|stats| {
+        stats[pc] += 1;
+        stats[pc]
+    });
+    let total = PIECE_COUNT_TOTAL.with(|t| {
+        let total = t.get() + 1;
+        t.set(total);
+        total
+    });
+    let frequency = count as f64 / total as f64;
+
+    let acceptance = 0.5 * DESIRED_DISTRIBUTION[pc] / frequency;
+    acceptance.clamp(0., 1.)
+}
+
+pub fn should_keep(board: &Board, mv: Move, eval: i16, wdl: f32) -> bool {
+    const DEFAULT_VIRI_FILTER: Filter = Filter {
+        min_ply: 16,
+        min_pieces: 4,
+        filter_tactical: true,
+        filter_check: true,
+        filter_castling: true,
+        max_eval: 10000,
+        max_eval_incorrectness: 2500,
+        random_fen_skipping: true,
+        random_fen_skip_probability: 0.15,
+
+        wdl_filtered: false,
+
+        wdl_model_params_a: [0.0; 4],
+        wdl_model_params_b: [0.0; 4],
+        material_min: 17,
+        material_max: 78,
+        mom_target: 58,
+        wdl_heuristic_scale: 1.0,
+    };
+    let mut rng = rng();
+    let wdl = match wdl {
+        1.0 => WDL::Win,
+        0.5 => WDL::Draw,
+        0.0 => WDL::Loss,
+        _ => unreachable!(),
+    };
+
+    !DEFAULT_VIRI_FILTER.should_filter(mv, eval as i32, board, wdl, &mut rng)
+        && rng.random_bool(piece_count_acceptance(board))
 }
