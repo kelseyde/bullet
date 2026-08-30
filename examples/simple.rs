@@ -5,7 +5,6 @@ and the training schedule is pretty sensible.
 There's potentially a lot of elo available by adjusting the wdl
 and lr schedulers, depending on your dataset.
 */
-mod hobbes;
 
 use bullet_lib::{
     game::inputs::Chess768,
